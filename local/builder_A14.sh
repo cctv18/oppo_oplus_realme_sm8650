@@ -12,7 +12,7 @@ SOC_BRANCH=${SOC_BRANCH:-sm8650}
 MANIFEST=${MANIFEST:-oppo+oplus+realme}
 read -p "请输入自定义内核后缀（默认：android14-11-o-gca13bffobf09）: " CUSTOM_SUFFIX
 CUSTOM_SUFFIX=${CUSTOM_SUFFIX:-android14-11-o-gca13bffobf09}
-USE_PATCH_LINUX=${USE_PATCH_LINUX:-y}
+USE_PATCH_LINUX=${USE_PATCH_LINUX:-n}
 read -p "是否应用 lz4kd 补丁？(y/n，默认：y): " APPLY_LZ4KD
 APPLY_LZ4KD=${APPLY_LZ4KD:-y}
 read -p "是否安装风驰内核驱动？(y/n，默认：y): " APPLY_SCX
