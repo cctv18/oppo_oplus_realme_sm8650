@@ -66,7 +66,7 @@ done
 
 # ===== 拉取 SukiSU-Ultra 并设置版本号 =====
 echo ">>> 拉取 SukiSU-Ultra 并设置版本..."
-curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-dev
+curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
 cd KernelSU
 KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 10606)
 export KSU_VERSION=$KSU_VERSION
