@@ -17,7 +17,15 @@ on:
 #    - cron: '0 23 * * *'  # UTC时间23点（北京时间次日7点）
     inputs:
       lz4k_enable:
-        description: '是否安装 LZ4K 补丁'
+        description: '是否安装 LZ4KD 补丁'
+        required: true
+        type: choice
+        default: 'false'
+        options:
+          - 'true'
+          - 'false'
+      lz4_enable:
+        description: '是否安装 lz4 + zstd 补丁(和lz4kd可能冲突,二选一)'
         required: true
         type: choice
         default: 'true'
@@ -85,7 +93,7 @@ jobs:
           #fi
           curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/refs/heads/main/kernel/setup.sh" | bash -s susfs-main
           cd ./KernelSU
-          KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 10606)
+          KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 10700)
           echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
           echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
           export KSU_VERSION=$KSU_VERSION
@@ -96,13 +104,21 @@ jobs:
           cd kernel_workspace
           git clone https://github.com/ShirkNeko/susfs4ksu.git -b gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}
           git clone https://github.com/ShirkNeko/SukiSU_patch.git
+          git clone https://github.com/Xiaomichael/kernel_patches.git
           cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./common/
           cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
           cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
           cp ./SukiSU_patch/hooks/syscall_hooks.patch ./common/
+          cp ./kernel_patches/001-lz4.patch ./common/
+          cp ./kernel_patches/lz4armv8.S ./common/lib
+          cp ./kernel_patches/002-zstd.patch ./common/
           cd ./common
           patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
           patch -p1 < syscall_hooks.patch
+          if [ "${{ github.event.inputs.lz4_enable }}" == "true" ]; then
+            git apply -p1 < 001-lz4.patch || true
+            patch -p1 < 002-zstd.patch || true
+          fi
 
       - name: 应用 Hide Stuff 修补程序
         run: |
@@ -266,7 +282,8 @@ jobs:
             - 编译时间: ${{ env.TIME_FORM }}
             - 机型：欧加真骁龙8Gen3 6.1 Android 14内核通用（基于一加12 Android 14 版官方OKI源码）
             - 特性：SukiSU Ultra + SUSFS + VFS + KPM
-            - LZ4K支持：${{ github.event.inputs.lz4k_enable }}
+            - LZ4KD支持：${{ github.event.inputs.lz4k_enable }}
+            - LZ4支持：${{ github.event.inputs.lz4_enable }}
             - 风驰内核支持：${{ github.event.inputs.scx_enable }}
             - 推荐系统：ColorOS 14 / RealmeUI 5.0
             - SukiSU管理器下载：[SukiSU-Ultra](https://github.com/ShirkNeko/SukiSU-Ultra/releases)
