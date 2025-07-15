@@ -24,6 +24,14 @@ on:
         options:
           - 'manual'
           - 'kprobes'
+      ccache_enable:
+        description: 是否使用使用构建缓存(第一次使用不会加快，但是第二次开始如果代码变动不大速度会复用缓存从而大幅提升编译速度)
+        required: false
+        type: choice
+        default: 'manual'
+        options:
+          - 'true'
+          - 'false'
       lz4k_enable:
         description: '是否安装 LZ4K 补丁'
         required: true
@@ -96,6 +104,13 @@ jobs:
           sudo wget https://apt.llvm.org/llvm.sh
           sudo chmod +x llvm.sh
           sudo sudo ./llvm.sh 20 all
+
+      - name: 配置缓存
+        if: github.event.inputs.ccache_enable == true
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: sm8650-6-1-75
+          max-size: 2048M
 
       - name: 初始化源码仓库
         run: |
@@ -288,7 +303,11 @@ jobs:
             cp -r ./sched_ext/* ./common/kernel/sched
           fi
           cd common
-          make -j$(nproc --all) LLVM=-20 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnuabeihf- CC=clang LD=ld.lld HOSTCC=clang HOSTLD=ld.lld O=out KCFLAGS+=-Wno-error gki_defconfig all
+          if [ "${{ github.event.inputs.ccache_enable }}" == "true" ]; then
+              make -j$(nproc --all) LLVM=-20 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnuabeihf- CC="ccache clang" LD=ld.lld HOSTCC="ccache clang" HOSTLD=ld.lld O=out KCFLAGS+=-Wno-error gki_defconfig all
+          else
+              make -j$(nproc --all) LLVM=-20 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnuabeihf- CC=clang LD=ld.lld HOSTCC=clang HOSTLD=ld.lld O=out KCFLAGS+=-Wno-error gki_defconfig all
+          fi
           echo "内核编译完成！"
          
       - name: 应用patch_linux并修补内核
