@@ -109,7 +109,7 @@ jobs:
         if: github.event.inputs.ccache_enable == true
         uses: hendrikmuhs/ccache-action@v1.2
         with:
-          key: sm8650-6-1-118
+          key: sm8650-6-1-57
           max-size: 2048M
 
       - name: 初始化源码仓库
