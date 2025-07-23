@@ -24,6 +24,14 @@ on:
         options:
           - 'manual'
           - 'kprobes'
+      kpm:
+        description: '是否开启kpm'
+        required: true
+        type: choice
+        default: 'false'
+        options:
+          - 'true'
+          - 'false'
       lz4k_enable:
         description: '是否安装 LZ4K 补丁'
         required: true
@@ -181,7 +189,9 @@ jobs:
         run: |
           cd kernel_workspace
           echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
-          echo "CONFIG_KPM=y" >> ./common/arch/arm64/configs/gki_defconfig
+          if [ "${{ github.event.inputs.kpm }}" == "true" ]; then
+            echo "CONFIG_KPM=y" >> ./common/arch/arm64/configs/gki_defconfig
+          fi
           if [ "${{ github.event.inputs.hook_method }}" == "kprobes" ]; then
             echo "正在开启kprobes钩子..."
             echo "CONFIG_KSU_SUSFS_SUS_SU=y" >> ./common/arch/arm64/configs/gki_defconfig
@@ -333,6 +343,7 @@ jobs:
           echo "内核编译完成！"
          
       - name: 应用patch_linux并修补内核
+        if: ${{ github.event.inputs.kpm == 'true' }}
         run: |
           cd kernel_workspace/common/out/arch/arm64/boot
           curl -LO https://github.com/ShirkNeko/SukiSU_KernelPatch_patch/releases/download/0.12.0/patch_linux
