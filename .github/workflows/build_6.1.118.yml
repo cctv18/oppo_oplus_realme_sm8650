@@ -343,8 +343,8 @@ jobs:
           echo "内核编译完成！"
          
       - name: 应用patch_linux并修补内核
-        run: |
         if: ${{ github.event.inputs.kpm == 'On' }}
+        run: |
           cd kernel_workspace/common/out/arch/arm64/boot
           curl -LO https://github.com/ShirkNeko/SukiSU_KernelPatch_patch/releases/download/0.12.0/patch_linux
           chmod +x patch_linux
