@@ -69,7 +69,7 @@ on:
         description: '是否启用三星SSG IO调度器'
         required: true
         type: choice
-        default: 'flase'
+        default: 'true'
         options:
           - 'true'
           - 'false'
