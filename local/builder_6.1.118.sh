@@ -12,9 +12,12 @@ SOC_BRANCH=${SOC_BRANCH:-sm8650}
 MANIFEST=${MANIFEST:-oppo+oplus+realme}
 read -p "请输入自定义内核后缀（默认：android14-11-o-gca13bffobf09）: " CUSTOM_SUFFIX
 CUSTOM_SUFFIX=${CUSTOM_SUFFIX:-android14-11-o-gca13bffobf09}
+read -p "是否启用 KPM？(y/n，默认：y): " USE_PATCH_LINUX
 USE_PATCH_LINUX=${USE_PATCH_LINUX:-y}
+read -p "KSU分支版本(y=SukiSU Ultra, n=KernelSU Next, 默认：y): " KSU_BRANCH
+KSU_BRANCH=${KSU_BRANCH:-y}
 read -p "是否应用 kprobes钩子？(y/n，默认：n): " APPLY_KPROBES
-APPLY_LZ4KD=${APPLY_KPROBES:-n}
+APPLY_KPROBES=${APPLY_KPROBES:-n}
 read -p "是否应用 lz4 1.10.0 & zstd 1.5.7 补丁？(y/n，默认：y): " APPLY_LZ4
 APPLY_LZ4=${APPLY_LZ4:-y}
 read -p "是否应用 lz4kd 补丁？(y/n，默认：y): " APPLY_LZ4KD
@@ -26,15 +29,23 @@ APPLY_BBR=${APPLY_BBR:-n}
 read -p "是否启用三星SSG IO调度器？(y/n，默认：y): " APPLY_SSG
 APPLY_SSG=${APPLY_SSG:-y}
 read -p "是否启用Re-Kernel？(y/n，默认：n): " APPLY_REKERNEL
-APPLY_SSG=${APPLY_SSG:-n}
+APPLY_REKERNEL=${APPLY_REKERNEL:-n}
 read -p "是否安装风驰内核驱动（未完成）？(y/n，默认：n): " APPLY_SCX
 APPLY_SCX=${APPLY_SCX:-n}
+
+if [[ "$KSU_BRANCH" == "y" || "$KSU_BRANCH" == "Y" ]]; then
+  KSU_TYPE="SukiSU Ultra"
+else
+  KSU_TYPE="KernelSU Next"
+fi
+
 echo
 echo "===== 配置信息 ====="
 echo "SoC 分支: $SOC_BRANCH"
 echo "适用机型: $MANIFEST"
 echo "自定义内核后缀: -$CUSTOM_SUFFIX"
-echo "使用 patch_linux: $USE_PATCH_LINUX"
+echo "KSU分支版本: $KSU_TYPE"
+echo "启用 KPM: $USE_PATCH_LINUX"
 echo "使用 kprobes钩子: $APPLY_KPROBES"
 echo "应用 lz4&zstd 补丁: $APPLY_LZ4"
 echo "应用 lz4kd 补丁: $APPLY_LZ4KD"
@@ -82,31 +93,59 @@ for f in ./common/scripts/setlocalversion; do
   sed -i "\$s|echo \"\\\$res\"|echo \"-${CUSTOM_SUFFIX}\"|" "$f"
 done
 
-# ===== 拉取 SukiSU-Ultra 并设置版本号 =====
-echo ">>> 拉取 SukiSU-Ultra 并设置版本..."
-curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
-cd KernelSU
-KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 10606)
-export KSU_VERSION=$KSU_VERSION
-sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
+# ===== 拉取 KSU 并设置版本号 =====
+if [[ "$KSU_BRANCH" == "y" ]]; then
+  echo ">>> 拉取 SukiSU-Ultra 并设置版本..."
+  curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
+  cd KernelSU
+  KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 10606)
+  export KSU_VERSION=$KSU_VERSION
+  sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
+else
+  echo ">>> 拉取 KernelSU Next 并设置版本..."
+  curl -LSs "https://raw.githubusercontent.com/pershoot/KernelSU-Next/next-susfs/kernel/setup.sh" | bash -s next-susfs
+  cd KernelSU-Next
+  KSU_VERSION=$(expr $(curl -sI "https://api.github.com/repos/KernelSU-Next/KernelSU-Next/commits?sha=next&per_page=1" | grep -i "link:" | sed -n 's/.*page=\([0-9]*\)>; rel="last".*/\1/p') "+" 10200)
+  sed -i "s/DKSU_VERSION=11998/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
+fi
 
-# ===== 克隆补丁仓库 =====
+# ===== 克隆补丁仓库&应用 SUSFS 补丁 =====
 echo ">>> 克隆补丁仓库..."
 cd "$WORKDIR/kernel_workspace"
-git clone https://github.com/shirkneko/susfs4ksu.git -b gki-android14-6.1
-git clone https://github.com/ShirkNeko/SukiSU_patch.git
-
-# ===== 应用 SUSFS 补丁 =====
 echo ">>> 应用 SUSFS&hook 补丁..."
-cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
-cp ./SukiSU_patch/hooks/syscall_hooks.patch ./common/
-cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
-cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-cd ./common
-patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
-cp ../SukiSU_patch/69_hide_stuff.patch ./
-patch -p1 -F 3 < 69_hide_stuff.patch || true
-patch -p1 < syscall_hooks.patch || true
+if [[ "$KSU_BRANCH" == "y" ]]; then
+  git clone https://github.com/shirkneko/susfs4ksu.git -b gki-android14-6.1
+  git clone https://github.com/ShirkNeko/SukiSU_patch.git
+  cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
+  cp ./SukiSU_patch/hooks/syscall_hooks.patch ./common/
+  cp ./SukiSU_patch/69_hide_stuff.patch ./common/
+  cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
+  cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+  cd ./common
+  patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
+  patch -p1 < syscall_hooks.patch || true
+  patch -p1 -F 3 < 69_hide_stuff.patch || true
+else
+  git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
+  git clone https://github.com/WildKernels/kernel_patches.git
+  cp ./susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./common/
+  cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
+  cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+  cp ./kernel_patches/next/susfs_fix_patches/v1.5.9/*.patch ./common/
+  cp ./kernel_patches/next/scope_min_manual_hooks_v1.4.patch ./common/
+  cp ./kernel_patches/69_hide_stuff.patch ./common/
+  cd ./common
+  patch -p1 < 10_enable_susfs_for_ksu.patch || true
+  patch -p1 -N -F 3 < scope_min_manual_hooks_v1.4.patch || true
+  patch -p1 -N < fix_apk_sign.c.patch || true
+  patch -p1 -N -F 3 < fix_core_hook.c.patch || true
+  patch -p1 -N < fix_selinux.c.patch || true
+  patch -p1 -N < fix_ksud.c.patch || true
+  patch -p1 -N < fix_rules.c.patch || true
+  patch -p1 -N < fix_sucompat.c.patch || true
+  patch -p1 -N < fix_kernel_compat.c.patch || true
+  patch -p1 -N -F 3 < 69_hide_stuff.patch || true
+fi
 cd ../
 
 # ===== 应用 LZ4 & ZSTD 补丁 =====

@@ -16,6 +16,14 @@ on:
 #  schedule:
 #    - cron: '0 23 * * *'  # UTC时间23点（北京时间次日7点）
     inputs:
+      ksu_type:
+        description: 'KernelSU分支(SukiSU Ultra/KernelSU Next,默认SukiSU Ultra)'
+        required: true
+        type: choice
+        default: 'sukisu'
+        options:
+          - 'sukisu'
+          - 'ksunext'
       hook_method:
         description: hook模式(大部分情况manual即可，少数需切换sus su模式的场景才需要kprobes钩子)
         required: true
@@ -188,83 +196,119 @@ jobs:
             sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' "$f"
           done
 
-      - name: 添加 SukiSU Ultra
+      - name: 添加KernelSU
         id: ksu_version
         run: |
           # 进入内核工作目录
           cd kernel_workspace
-          curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/refs/heads/main/kernel/setup.sh" | bash -s susfs-main
-          cd ./KernelSU
-          export KSU_VERSION=$KSU_VERSION
-          # 尝试最多 3 次获取 KernelSU API 版本号
-          for i in {1..3}; do
-            # 从远程 Makefile 中提取 KSU_API_VERSION
-            KSU_API_VERSION=$(curl -s "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/susfs-main/kernel/Makefile" | 
-              # 查找第一个包含版本定义的行
-              grep -m1 "KSU_VERSION_API :=" | 
-              # 提取等号后的值
-              awk -F'= ' '{print $2}' | 
-              # 删除所有空白字符
-              tr -d '[:space:]')
-            # 如果成功获取到版本号则跳出循环，否则等待 1 秒后重试
-            [ -n "$KSU_API_VERSION" ] && break || sleep 1
-          done
-          # 如果获取失败，使用默认版本号 3.1.7
-          [ -z "$KSU_API_VERSION" ] && KSU_API_VERSION="3.1.7"
-          # 将 API 版本号存储到 GitHub 环境变量
-          echo "KSU_API_VERSION=$KSU_API_VERSION" >> $GITHUB_ENV
-          # 创建版本定义模板&版本格式函数
-          # KSU_VERSION_API: API 版本定义
-          # KSU_VERSION_FULL: 完整版本定义
-          VERSION_DEFINITIONS=$(cat << EOF
-          define get_ksu_version_full
-          v\\$1-SukiSU-cctv18
-          endef
+          if [[ ${{ github.event.inputs.ksu_type }} == "sukisu" ]]; then
+            echo "正在配置SukiSU Ultra..."
+            curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/refs/heads/main/kernel/setup.sh" | bash -s susfs-main
+            cd ./KernelSU
+            export KSU_VERSION=$KSU_VERSION
+            # 尝试最多 3 次获取 KernelSU API 版本号
+            for i in {1..3}; do
+              # 从远程 Makefile 中提取 KSU_API_VERSION
+              KSU_API_VERSION=$(curl -s "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/susfs-main/kernel/Makefile" | 
+                # 查找第一个包含版本定义的行
+                grep -m1 "KSU_VERSION_API :=" | 
+                # 提取等号后的值
+                awk -F'= ' '{print $2}' | 
+                # 删除所有空白字符
+                tr -d '[:space:]')
+              # 如果成功获取到版本号则跳出循环，否则等待 1 秒后重试
+              [ -n "$KSU_API_VERSION" ] && break || sleep 1
+            done
+            # 如果获取失败，使用默认版本号 3.1.7
+            [ -z "$KSU_API_VERSION" ] && KSU_API_VERSION="3.1.7"
+            # 将 API 版本号存储到 GitHub 环境变量
+            echo "KSU_API_VERSION=$KSU_API_VERSION" >> $GITHUB_ENV
+            # 创建版本定义模板&版本格式函数
+            # KSU_VERSION_API: API 版本定义
+            # KSU_VERSION_FULL: 完整版本定义
+            VERSION_DEFINITIONS=$(cat << EOF
+            define get_ksu_version_full
+            v\\$1-SukiSU-cctv18
+            endef
 
-          KSU_VERSION_API := $KSU_API_VERSION
-          KSU_VERSION_FULL := v$KSU_API_VERSION-SukiSU-cctv18
-          EOF
-              )
-          # 清理内核 Makefile 中的旧版本定义
-          # 删除版本函数
-          sed -i '/define get_ksu_version_full/,/endef/d' kernel/Makefile
-          # 删除 API 版本定义
-          sed -i '/KSU_VERSION_API :=/d' kernel/Makefile
-          # 删除完整版本定义
-          sed -i '/KSU_VERSION_FULL :=/d' kernel/Makefile
-          # 在 REPO_OWNER 行后插入新版本定义
-          awk -v def="$VERSION_DEFINITIONS" '
-            # 当找到 REPO_OWNER 行时，插入版本定义并设置标记
-            /REPO_OWNER :=/ {print; print def; inserted=1; next}
-            # 打印所有行
-            1
-            # 如果未找到插入点，在文件末尾追加
-            END {if (!inserted) print def}
-          ' kernel/Makefile > kernel/Makefile.tmp && mv kernel/Makefile.tmp kernel/Makefile
+            KSU_VERSION_API := $KSU_API_VERSION
+            KSU_VERSION_FULL := v$KSU_API_VERSION-SukiSU-cctv18
+            EOF
+                )
+            # 清理内核 Makefile 中的旧版本定义
+            # 删除版本函数
+            sed -i '/define get_ksu_version_full/,/endef/d' kernel/Makefile
+            # 删除 API 版本定义
+            sed -i '/KSU_VERSION_API :=/d' kernel/Makefile
+            # 删除完整版本定义
+            sed -i '/KSU_VERSION_FULL :=/d' kernel/Makefile
+            # 在 REPO_OWNER 行后插入新版本定义
+            awk -v def="$VERSION_DEFINITIONS" '
+              # 当找到 REPO_OWNER 行时，插入版本定义并设置标记
+              /REPO_OWNER :=/ {print; print def; inserted=1; next}
+              # 打印所有行
+              1
+              # 如果未找到插入点，在文件末尾追加
+              END {if (!inserted) print def}
+            ' kernel/Makefile > kernel/Makefile.tmp && mv kernel/Makefile.tmp kernel/Makefile
 
-          # 生成自定义版本号（基于提交计数）, 失败时使用 114514
-          KSU_VERSION=$(expr $(git rev-list --count main) + 10700 2>/dev/null || echo 114514)
-          # 存储版本号到 GitHub 环境变量
-          echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
-          echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
+            # 生成自定义版本号（基于提交计数）, 失败时使用 114514
+            KSU_VERSION=$(expr $(git rev-list --count main) + 10700 2>/dev/null || echo 114514)
+            # 存储版本号到 GitHub 环境变量
+            echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+            echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
 
-          # 验证修改结果
-          grep -A10 "REPO_OWNER" kernel/Makefile  # 检查插入点后的内容
-          grep "KSU_VERSION_FULL" kernel/Makefile # 确认版本定义存在
+            # 验证修改结果
+            grep -A10 "REPO_OWNER" kernel/Makefile  # 检查插入点后的内容
+            grep "KSU_VERSION_FULL" kernel/Makefile # 确认版本定义存在
+          else
+            echo "正在配置KernelSU Next..."
+            curl -LSs "https://raw.githubusercontent.com/pershoot/KernelSU-Next/next-susfs/kernel/setup.sh" | bash -s next-susfs
+            cd KernelSU-Next
+            KSU_VERSION=$(expr $(curl -sI "https://api.github.com/repos/KernelSU-Next/KernelSU-Next/commits?sha=next&per_page=1" | grep -i "link:" | sed -n 's/.*page=\([0-9]*\)>; rel="last".*/\1/p') "+" 10200)
+            echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+            echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
+            sed -i "s/DKSU_VERSION=11998/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
+          fi
 
-
-      - name: 应用 SukiSU-Ultra & SUSFS 补丁
+      - name: 应用 KernelSU & SUSFS 补丁
         run: |
           cd kernel_workspace
-          git clone https://github.com/ShirkNeko/susfs4ksu.git -b gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}
-          git clone https://github.com/ShirkNeko/SukiSU_patch.git
-          cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./common/
-          cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
-          cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-          cp ./SukiSU_patch/hooks/syscall_hooks.patch ./common/
-          cd ./common
-          patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
-          patch -p1 < syscall_hooks.patch || true
+          if [[ ${{ github.event.inputs.ksu_type }} == "sukisu" ]]; then
+            echo "正在添加SukiSU Ultra补丁..."
+            git clone https://github.com/ShirkNeko/susfs4ksu.git -b gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}
+            git clone https://github.com/ShirkNeko/SukiSU_patch.git
+            cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./common/
+            cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
+            cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+            cp ./SukiSU_patch/hooks/syscall_hooks.patch ./common/
+            cp ./SukiSU_patch/69_hide_stuff.patch ./common/
+            cd ./common
+            patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
+            patch -p1 < syscall_hooks.patch || true
+            patch -p1 < 69_hide_stuff.patch || true
+          else
+            echo "正在添加KernelSU Next补丁..."
+            git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}
+            git clone https://github.com/WildKernels/kernel_patches.git
+            cp ./susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./common/
+            cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
+            cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+            cp ./kernel_patches/next/susfs_fix_patches/v1.5.9/*.patch ./common/
+            cp ./kernel_patches/next/scope_min_manual_hooks_v1.4.patch ./common/
+            cp ./kernel_patches/69_hide_stuff.patch ./common/
+            cd ./common
+            patch -p1 < 10_enable_susfs_for_ksu.patch || true
+            patch -p1 -N -F 3 < scope_min_manual_hooks_v1.4.patch || true
+            patch -p1 -N < fix_apk_sign.c.patch || true
+            patch -p1 -N -F 3 < fix_core_hook.c.patch || true
+            patch -p1 -N < fix_selinux.c.patch || true
+            patch -p1 -N < fix_ksud.c.patch || true
+            patch -p1 -N < fix_rules.c.patch || true
+            patch -p1 -N < fix_sucompat.c.patch || true
+            patch -p1 -N < fix_kernel_compat.c.patch || true
+            patch -p1 -N -F 3 < 69_hide_stuff.patch || true
+          fi
           
       - name: 应用lz4 1.10.0 & zstd 1.5.7补丁
         run: |
@@ -280,12 +324,6 @@ jobs:
             patch -p1 < 002-zstd.patch || true
           fi
 
-      - name: 应用 Hide Stuff 补丁
-        run: |
-          cd kernel_workspace/common
-          cp ../SukiSU_patch/69_hide_stuff.patch ./
-          patch -p1 < 69_hide_stuff.patch
-
       - name: 应用 lz4kd 补丁
         run: |
           if [[ "${{ github.event.inputs.lz4k_enable }}" == "true" ]]; then
@@ -298,7 +336,7 @@ jobs:
             patch -p1 -F 3 < lz4kd.patch || true
           fi
           
-      - name: 添加 SukiSU-Ultra & SUSFS 配置项
+      - name: 添加 KSU & SUSFS 配置项
         run: |
           cd kernel_workspace
           echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
@@ -564,6 +602,12 @@ jobs:
           echo "TIME_FORM=$TIME_FORM" >> $GITHUB_ENV
           TAG_HEAD="OPPO+OPlus+Realme-A14-build"
           echo "TAG_HEAD=$TAG_HEAD" >> $GITHUB_ENV
+          if [[ ${{ github.event.inputs.ksu_type }} == "sukisu" ]]; then
+            KSU_BRANCH="SukiSU Ultra"
+          else
+            KSU_BRANCH="KernelSU Next"
+          fi
+          echo "KSU_BRANCH=$KSU_BRANCH" >> $GITHUB_ENV
          
       - name: 创建发布
         id: create_release
@@ -572,11 +616,11 @@ jobs:
           tag_name: "${{ env.TAG_HEAD }}-${{ env.TIME }}"
           name: "${{ env.TAG_HEAD }}-${{ env.FULL_VERSION }}"
           body: |
-            ### 📱 欧加真 Android 14 SukiSU-Ultra SM8650 通用内核 | 构建信息
+            ### 📱 欧加真 Android 14 ${{ env.KSU_BRANCH }} SM8650 通用内核 | 构建信息
             - 内核版本号: ${{ env.FULL_VERSION }}
             - 编译时间: ${{ env.TIME_FORM }}
             - 机型：欧加真骁龙8Gen3 6.1 Android 14内核通用（基于一加12 Android 14 版官方OKI源码）
-            - 特性：SukiSU Ultra + SUSFS + VFS + KPM
+            - 特性：${{ env.KSU_BRANCH }} + SUSFS + VFS + KPM
             - hook模式：${{ github.event.inputs.hook_method }}
             - LZ4KD支持：${{ github.event.inputs.lz4k_enable }}
             - LZ4支持：${{ github.event.inputs.lz4_enable }}
@@ -588,7 +632,7 @@ jobs:
             - 推荐系统：ColorOS 14 / RealmeUI 5.0
             - SukiSU管理器下载：[SukiSU-Ultra](https://github.com/ShirkNeko/SukiSU-Ultra/releases)
             ### ⏫️ 更新内容：
-            - 更新SukiSU Ultra至最新版本（${{ needs.build.outputs.ksuver }}）
+            - 更新${{ env.KSU_BRANCH }}至最新版本（${{ needs.build.outputs.ksuver }}）
             - (预留)
             ### 📋 安装方法 | Installation Guide
             1. 若你的手机已经安装了第三方Recovery（如TWRP)，可下载对应机型的AnyKernel刷机包后进入Recovery模式，通过Recovery刷入刷机包后重启设备
