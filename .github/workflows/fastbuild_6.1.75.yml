@@ -324,7 +324,7 @@ jobs:
             echo "CONFIG_KSU_KPROBES_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
           else
             echo "正在开启manual钩子..."
-            echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
+            echo "CONFIG_KSU_TRACEPOINT_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
             echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
           fi
           echo "CONFIG_KSU_SUSFS=y" >> ./common/arch/arm64/configs/gki_defconfig
