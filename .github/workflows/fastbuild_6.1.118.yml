@@ -69,7 +69,7 @@ on:
           - 'false'
       ssg_rekernel_enable:
         description: '是否启用三星SSG IO调度器及Re-Kernel支持(0=均不安装,1=安装SSG IO调度器,2=安装Re-Kernel,3=均安装,默认1)'
-        required: true
+        required: false
         type: choice
         default: '1'
         options:
