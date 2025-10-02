@@ -13,7 +13,7 @@ MANIFEST=${MANIFEST:-oppo+oplus+realme}
 read -p "请输入自定义内核后缀（默认：android14-11-o-gca13bffobf09）: " CUSTOM_SUFFIX
 CUSTOM_SUFFIX=${CUSTOM_SUFFIX:-android14-11-o-gca13bffobf09}
 read -p "是否启用 KPM？(y/n，默认：y): " USE_PATCH_LINUX
-USE_PATCH_LINUX=${USE_PATCH_LINUX:-y}
+USE_PATCH_LINUX=${USE_PATCH_LINUX:-n}
 read -p "KSU分支版本(y=SukiSU Ultra, n=KernelSU Next, 默认：y): " KSU_BRANCH
 KSU_BRANCH=${KSU_BRANCH:-y}
 read -p "应用钩子类型 (manual/syscall/kprobes, m/s/k, 默认m): " APPLY_HOOKS
@@ -25,13 +25,13 @@ APPLY_LZ4KD=${APPLY_LZ4KD:-y}
 read -p "是否启用网络功能增强优化配置？(y/n，默认：y): " APPLY_BETTERNET
 APPLY_BETTERNET=${APPLY_BETTERNET:-y}
 read -p "是否添加 BBR 等一系列拥塞控制算法？(y添加/n禁用/d默认，默认：n): " APPLY_BBR
-APPLY_BBR=${APPLY_BBR:-n}
+APPLY_BBR=${APPLY_BBR:-y}
 read -p "是否启用三星SSG IO调度器？(y/n，默认：y): " APPLY_SSG
-APPLY_SSG=${APPLY_SSG:-y}
+APPLY_SSG=${APPLY_SSG:-n}
 read -p "是否启用Re-Kernel？(y/n，默认：n): " APPLY_REKERNEL
 APPLY_REKERNEL=${APPLY_REKERNEL:-n}
 read -p "是否启用内核级基带保护？(y/n，默认：n): " APPLY_BBG
-APPLY_BBG=${APPLY_BBG:-n}
+APPLY_BBG=${APPLY_BBG:-y}
 read -p "是否安装风驰内核驱动（未完成）？(y/n，默认：n): " APPLY_SCX
 APPLY_SCX=${APPLY_SCX:-n}
 
