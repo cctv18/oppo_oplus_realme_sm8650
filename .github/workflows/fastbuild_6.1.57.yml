@@ -82,7 +82,7 @@ on:
         description: '是否开启内核级基带保护(阻止一切对非用户分区的写入，有效防止格机)'
         required: true
         type: boolean
-        default: 'true'
+        default: 'false'
       kernel_suffix:
         description: '内核后缀(留空默认,开头别加连字符,勿加空格等影响指令运行的保留字符)'
         required: false
