@@ -656,12 +656,12 @@ jobs:
           echo "ssg_enable=$ssg_enable" >> $GITHUB_ENV
           echo "rekernel_enable=$rekernel_enable" >> $GITHUB_ENV
          
-      - name: 创建发布
+       - name: 创建发布
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: "${KSU_TYPENAME}"
-          name: "${{ env.TAG_HEAD }}-${{ env.FULL_VERSION }}"
+          tag_name: "${{ env.KSU_TYPE }}"
+          name: "${{ env.KSU_TYPE }}"
           body: |
             ### 📱 欧加真通用内核 | 构建信息
             - hook模式：${{ github.event.inputs.hook_method }}
