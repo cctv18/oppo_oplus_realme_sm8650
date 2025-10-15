@@ -37,7 +37,7 @@ on:
         description: '是否开启kpm(仅对sukisu生效;可能轻微增加耗电，不需要可关闭)'
         required: true
         type: choice
-        default: 'true'
+        default: 'false'
         options:
           - 'true'
           - 'false'
@@ -61,7 +61,7 @@ on:
           - 'true'
           - 'default'
       better_net:
-        description: '是否开启网络功能增强优化配置(优化代理连接,IPV6等功能;在部分天玑机型上可能导致bug,建议关闭)'
+        description: '是否开启网络功能增强优化配置(优化代理连接,IPV6等功能;在ace5竞速版上可能导致bug,建议关闭)'
         required: true
         type: choice
         default: 'false'
@@ -72,7 +72,7 @@ on:
         description: '是否启用三星SSG IO调度器及Re-Kernel支持(0=均不安装,1=安装SSG IO调度器,2=安装Re-Kernel,3=均安装,默认1)'
         required: true
         type: choice
-        default: '1'
+        default: '2'
         options:
           - '0'
           - '1'
@@ -82,7 +82,7 @@ on:
         description: '是否开启内核级基带保护(阻止一切对非用户分区的写入，有效防止格机)'
         required: true
         type: boolean
-        default: 'false'
+        default: 'true'
       kernel_suffix:
         description: '内核后缀(留空默认,开头别加连字符,勿加空格等影响指令运行的保留字符)'
         required: false
@@ -597,9 +597,9 @@ jobs:
             wget https://raw.githubusercontent.com/cctv18/oppo_oplus_realme_sm8650/refs/heads/main/zram.zip
           fi
           if [[ -n "${{ github.event.inputs.kernel_suffix }}" ]]; then
-            zip -r ../AnyKernel3_${KSU_TYPENAME}_${{ env.KSUVER }}_${{ env.KERNEL_VERSION }}_A15_${{ github.event.inputs.kernel_suffix }}.zip ./*
+            zip -r ../AnyKernel3_${KSU_TYPENAME}_${{ env.KSUVER }}_${{ env.KERNEL_VERSION }}.128_${{ github.event.inputs.kernel_suffix }}.zip ./*
           else
-            zip -r ../AnyKernel3_${KSU_TYPENAME}_${{ env.KSUVER }}_${{ env.KERNEL_VERSION }}_A15_${{ env.KERNEL_NAME }}.zip ./*
+            zip -r ../AnyKernel3_${KSU_TYPENAME}_${{ env.KSUVER }}_${{ env.KERNEL_VERSION }}.128_${{ env.KERNEL_NAME }}.zip ./*
           fi
 
       - name: 上传 ZIP 工件
@@ -671,20 +671,15 @@ jobs:
           echo "ssg_enable=$ssg_enable" >> $GITHUB_ENV
           echo "rekernel_enable=$rekernel_enable" >> $GITHUB_ENV
          
-      - name: 创建发布
+  - name: 创建发布
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: "${{ env.TAG_HEAD }}-${{ env.TIME }}"
+          tag_name: "${KSU_TYPENAME}"
           name: "${{ env.TAG_HEAD }}-${{ env.FULL_VERSION }}"
           body: |
-            ### 📱 欧加真 Android 15 ${{ env.KSU_BRANCH }} MT6897 通用内核 | 构建信息
-            - 内核版本号: ${{ env.FULL_VERSION }}
-            - 编译时间: ${{ env.TIME_FORM }}
-            - 机型：欧加真天玑8350 6.1.128 Android 15内核通用（基于一加平板 6.1.128 Android 15 版官方OKI源码）
-            - 特性：${{ env.KSU_BRANCH }} + SUSFS + VFS + KPM
+            ### 📱 欧加真通用内核 | 构建信息
             - hook模式：${{ github.event.inputs.hook_method }}
-            - KPM支持 (仅对sukisu生效)：${{ github.event.inputs.kpm_enable }}
             - LZ4KD支持：${{ env.lz4kd_enable }}
             - LZ4支持：${{ env.lz4_zstd_enable }}
             - 网络功能增强：${{ github.event.inputs.better_net }}
@@ -692,18 +687,6 @@ jobs:
             - 三星SSG IO调度器支持：${{ env.ssg_enable }}
             - Re-Kernel支持：${{ env.rekernel_enable }}
             - 内核级基带保护支持：${{ github.event.inputs.baseband_guard }}
-            - 推荐系统：ColorOS 15 / RealmeUI 6.0
-            - SukiSU Ultra管理器下载：[SukiSU-Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra/releases)
-            - KernelSU Next管理器下载：[KernelSU-Next](https://github.com/KernelSU-Next/KernelSU-Next/releases)
-            ### ⏫️ 更新内容：
-            - 更新${{ env.KSU_BRANCH }}至最新版本（${{ needs.build.outputs.ksuver }}）
-            - (预留)
-            ### 📋 安装方法 | Installation Guide
-            1. 若你的手机已经安装了第三方Recovery（如TWRP)，可下载对应机型的AnyKernel刷机包后进入Recovery模式，通过Recovery刷入刷机包后重启设备
-            2. 若你的手机之前已有 root 权限，可在手机上安装[HorizonKernelFlasher](https://github.com/libxzr/HorizonKernelFlasher/releases)，在HorizonKernelFlasher中刷入AnyKernel刷机包并重启
-            3. 若你之前已刷入SukiSU Ultra内核，且SukiSU Ultra管理器已更新至最新版本，可在SukiSU Ultra管理器中直接刷入AnyKernel刷机包并重启
-            4. 刷入无lz4kd补丁版的内核前若刷入过lz4kd补丁版的内核，为避免出错，请先关闭zram模块
-            #### ※※※刷写内核有风险，为防止出现意外导致手机变砖，在刷入内核前请务必用[KernelFlasher](https://github.com/capntrips/KernelFlasher)等软件备份boot等关键启动分区!※※※
           draft: false
           prerelease: false
           files: |
