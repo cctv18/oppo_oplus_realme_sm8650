@@ -8,12 +8,11 @@ cd "$SCRIPT_DIR"
 # ===== 设置自定义参数 =====
 echo "===== 欧加真MT6897通用6.1.128 A15 (天玑特供)OKI内核本地编译脚本 By Coolapk@cctv18 ====="
 echo ">>> 读取用户配置..."
-SOC_BRANCH=${SOC_BRANCH:-mt6897}
 MANIFEST=${MANIFEST:-oppo+oplus+realme}
 read -p "请输入自定义内核后缀（默认：android14-11-o-gca13bffobf09）: " CUSTOM_SUFFIX
 CUSTOM_SUFFIX=${CUSTOM_SUFFIX:-android14-11-o-gca13bffobf09}
-read -p "是否启用 KPM？(y/n，默认：y): " USE_PATCH_LINUX
-USE_PATCH_LINUX=${USE_PATCH_LINUX:-y}
+read -p "是否启用 KPM？(y/n，默认：n): " USE_PATCH_LINUX
+USE_PATCH_LINUX=${USE_PATCH_LINUX:-n}
 read -p "KSU分支版本(y=SukiSU Ultra, n=KernelSU Next, 默认：y): " KSU_BRANCH
 KSU_BRANCH=${KSU_BRANCH:-y}
 read -p "应用钩子类型 (manual/syscall/kprobes, m/s/k, 默认m): " APPLY_HOOKS
@@ -22,7 +21,7 @@ read -p "是否应用 lz4 1.10.0 & zstd 1.5.7 补丁？(y/n，默认：y): " APP
 APPLY_LZ4=${APPLY_LZ4:-y}
 read -p "是否应用 lz4kd 补丁？(y/n，默认：y): " APPLY_LZ4KD
 APPLY_LZ4KD=${APPLY_LZ4KD:-y}
-read -p "是否启用网络功能增强优化配置？(y/n，在ace5竞速版上可能导致bug,建议关闭;默认：n): " APPLY_BETTERNET
+read -p "是否启用网络功能增强优化配置？(y/n，在天玑机型上可能导致bug,建议关闭;默认：n): " APPLY_BETTERNET
 APPLY_BETTERNET=${APPLY_BETTERNET:-n}
 read -p "是否添加 BBR 等一系列拥塞控制算法？(y添加/n禁用/d默认，默认：n): " APPLY_BBR
 APPLY_BBR=${APPLY_BBR:-n}
@@ -30,10 +29,8 @@ read -p "是否启用三星SSG IO调度器？(y/n，默认：y): " APPLY_SSG
 APPLY_SSG=${APPLY_SSG:-y}
 read -p "是否启用Re-Kernel？(y/n，默认：n): " APPLY_REKERNEL
 APPLY_REKERNEL=${APPLY_REKERNEL:-n}
-read -p "是否启用内核级基带保护？(y/n，默认：n): " APPLY_BBG
-APPLY_BBG=${APPLY_BBG:-n}
-read -p "是否安装风驰内核驱动（未完成）？(y/n，默认：n): " APPLY_SCX
-APPLY_SCX=${APPLY_SCX:-n}
+read -p "是否启用内核级基带保护？(y/n，默认：y): " APPLY_BBG
+APPLY_BBG=${APPLY_BBG:-y}
 
 if [[ "$KSU_BRANCH" == "y" || "$KSU_BRANCH" == "Y" ]]; then
   KSU_TYPE="SukiSU Ultra"
@@ -43,7 +40,6 @@ fi
 
 echo
 echo "===== 配置信息 ====="
-echo "SoC 分支: $SOC_BRANCH"
 echo "适用机型: $MANIFEST"
 echo "自定义内核后缀: -$CUSTOM_SUFFIX"
 echo "KSU分支版本: $KSU_TYPE"
@@ -56,7 +52,6 @@ echo "应用 BBR 等算法: $APPLY_BBR"
 echo "启用三星SSG IO调度器: $APPLY_SSG"
 echo "启用Re-Kernel: $APPLY_REKERNEL"
 echo "启用内核级基带保护: $APPLY_BBG"
-echo "应用风驰内核驱动: $APPLY_SCX"
 echo "===================="
 echo
 
@@ -66,11 +61,11 @@ cd "$WORKDIR"
 
 # ===== 安装构建依赖 =====
 echo ">>> 安装构建依赖..."
+sudo apt-mark hold firefox && apt-mark hold libc-bin && apt-mark hold man-db
+sudo rm -rf /var/lib/man-db/auto-update
 sudo apt-get update
-sudo apt-get install curl bison flex make binutils dwarves git lld pahole zip perl make gcc python3 python-is-python3 bc libssl-dev libelf-dev -y
-sudo rm -rf ./llvm.sh
-sudo wget https://apt.llvm.org/llvm.sh
-sudo chmod +x llvm.sh
+sudo apt-get install --no-install-recommends -y curl bison flex clang binutils dwarves git lld pahole zip perl make gcc python3 python-is-python3 bc libssl-dev libelf-dev
+sudo rm -rf ./llvm.sh && wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh
 sudo ./llvm.sh 20 all
 
 # ===== 初始化仓库 =====
@@ -219,6 +214,9 @@ CONFIG_KSU_SUSFS_ENABLE_LOG=y
 CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y
 CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
 CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
+#添加对 Mountify (backslashxx/mountify) 模块的支持
+CONFIG_TMPFS_XATTR=y
+CONFIG_TMPFS_POSIX_ACL=y
 EOF
 
 if [[ "$APPLY_HOOKS" == "k" || "$APPLY_HOOKS" == "K" ]]; then
@@ -342,6 +340,7 @@ if [[ "$APPLY_BBG" == "y" || "$APPLY_BBG" == "Y" ]]; then
   sed -i 's/selinuxfs.o //g' "./selinux/Makefile"
   sed -i 's/hooks.o //g' "./selinux/Makefile"
   cat "./baseband-guard/sepatch.txt" >> "./selinux/Makefile"
+  cd ../../
 fi
 
 # ===== 禁用 defconfig 检查 =====
@@ -357,12 +356,6 @@ done
 # ===== 编译内核 =====
 echo ">>> 开始编译内核..."
 cd common
-if [[ "$APPLY_SCX" == "y" || "$APPLY_SCX" == "Y" ]]; then
-  git clone https://github.com/cctv18/sched_ext.git
-  rm -rf ./sched_ext/.git
-  rm -rf ./sched_ext/README.md
-  cp -r ./sched_ext/* ./kernel/sched
-fi
 make -j$(nproc --all) LLVM=-20 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnuabeihf- CC=clang LD=ld.lld HOSTCC=clang HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error gki_defconfig all
 echo ">>> 内核编译成功！"
 
@@ -401,15 +394,32 @@ if [[ "$APPLY_LZ4KD" == "y" || "$APPLY_LZ4KD" == "Y" ]]; then
 fi
 
 # ===== 生成 ZIP 文件名 =====
-MANIFEST_BASENAME=${MANIFEST}
-ZIP_NAME="Anykernel3-${MANIFEST_BASENAME}"
+ZIP_NAME="Anykernel3-${MANIFEST}"
 
-if [[ "$APPLY_LZ4KD" == "y" || "$USE_PATCH_LINUX" == "y" ]]; then
-  ZIP_NAME="${ZIP_NAME}-lz4kd-kpm-vfs"
-elif [[ "$APPLY_LZ4KD" == "y" || "$APPLY_LZ4KD" == "Y" ]]; then
-  ZIP_NAME="${ZIP_NAME}-lz4kd-vfs"
-elif [[ "$USE_PATCH_LINUX" == "y" || "$USE_PATCH_LINUX" == "Y" ]]; then
-  ZIP_NAME="${ZIP_NAME}-kpm-vfs"
+if [[ "$APPLY_HOOKS" == "m" || "$APPLY_HOOKS" == "M" ]]; then
+  ZIP_NAME="${ZIP_NAME}-manual"
+elif [[ "$APPLY_HOOKS" == "s" || "$APPLY_HOOKS" == "S" ]]; then
+  ZIP_NAME="${ZIP_NAME}-syscall"
+else
+  ZIP_NAME="${ZIP_NAME}-kprobe"
+fi
+if [[ "$APPLY_LZ4KD" == "y" || "$APPLY_LZ4KD" == "Y" ]]; then
+  ZIP_NAME="${ZIP_NAME}-lz4kd"
+fi
+if [[ "$APPLY_LZ4" == "y" || "$APPLY_LZ4" == "Y" ]]; then
+  ZIP_NAME="${ZIP_NAME}-lz4-zstd"
+fi
+if [[ "$USE_PATCH_LINUX" == "y" || "$USE_PATCH_LINUX" == "Y" ]]; then
+  ZIP_NAME="${ZIP_NAME}-kpm"
+fi
+if [[ "$APPLY_BBR" == "y" || "$APPLY_BBR" == "Y" ]]; then
+  ZIP_NAME="${ZIP_NAME}-bbr"
+if [[ "$APPLY_SSG" == "y" || "$APPLY_SSG" == "Y" ]]; then
+  ZIP_NAME="${ZIP_NAME}-ssg"
+if [[ "$APPLY_REKERNEL" == "y" || "$APPLY_REKERNEL" == "Y" ]]; then
+  ZIP_NAME="${ZIP_NAME}-rek"
+if [[ "$APPLY_BBG" == "y" || "$APPLY_BBG" == "Y" ]]; then
+  ZIP_NAME="${ZIP_NAME}-bbg"
 fi
 
 ZIP_NAME="${ZIP_NAME}-v$(date +%Y%m%d).zip"
