@@ -2,19 +2,12 @@ name: 加速版构建 6.1.128 (天玑特供)欧加真OKI内核
 
 env:
   TZ: Asia/Shanghai
-  CPU: 'mt6989'
-  FEIL: 'oppo+oplus+realme'
   ANDROID_VERSION: 'android14'
   KERNEL_VERSION: '6.1'
   KERNEL_NAME: 'android14-11-o-gca13bffobf09'
-  KERNELSU_VARIANT: 'SukiSU-Ultra'
-  KERNELSU_BRANCH: 'susfs-main'
 
 on:
   workflow_dispatch:
-  # 取消此处注释代码可开启每日定时编译
-#  schedule:
-#    - cron: '0 23 * * *'  # UTC时间23点（北京时间次日7点）
     inputs:
       ksu_type:
         description: 'KernelSU分支(SukiSU Ultra/KernelSU Next,默认SukiSU Ultra)'
@@ -34,7 +27,7 @@ on:
           - 'syscall'
           - 'kprobes'
       kpm_enable:
-        description: '是否开启kpm(仅对sukisu生效;可能轻微增加耗电，不需要可关闭)'
+        description: '是否开启kpm(仅对sukisu生效; 可能轻微增加耗电，不需要可保持默认关闭)'
         required: true
         type: choice
         default: 'false'
@@ -61,7 +54,7 @@ on:
           - 'true'
           - 'default'
       better_net:
-        description: '是否开启网络功能增强优化配置(优化代理连接,IPV6等功能;在ace5竞速版上可能导致bug,建议关闭)'
+        description: '是否开启网络功能增强优化配置(优化代理连接,IPV6等功能;在部分天玑机型上可能导致bug,建议关闭)'
         required: true
         type: choice
         default: 'false'
@@ -88,7 +81,7 @@ on:
         required: false
         type: string
         default: ''
-        
+
 jobs:
   build:
     runs-on: ubuntu-latest
