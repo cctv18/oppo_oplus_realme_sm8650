@@ -660,8 +660,8 @@ jobs:
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: "${{ github.event.inputs.ksu_type }}"
-          name:  "${{ github.event.inputs.ksu_type }}"
+          tag_name: ${{ github.event.inputs.ksu_type == 'sukisu' && 'SukiSU Ultra' || 'KernelSU NEXT' }}
+          name: ${{ github.event.inputs.ksu_type == 'sukisu' && 'SukiSU Ultra' || 'KernelSU NEXT' }}
           body: |
             ### 📱 欧加真通用内核 | 构建信息
             - hook模式：${{ github.event.inputs.hook_method }}
