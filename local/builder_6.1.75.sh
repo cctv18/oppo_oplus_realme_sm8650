@@ -320,7 +320,7 @@ if [[ "$APPLY_BBG" == "y" || "$APPLY_BBG" == "Y" ]]; then
   unzip -q master.zip
   mv "Baseband-guard-master" baseband-guard
   printf '\nobj-$(CONFIG_BBG) += baseband-guard/\n' >> ./Makefile
-  sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/landlock/landlock,baseband_guard/ } }' ./Kconfig
+  sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/lockdown/lockdown,baseband_guard/ } }' ./Kconfig
   awk '
   /endmenu/ { last_endmenu_line = NR }
   { lines[NR] = $0 }
