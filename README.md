@@ -1,6 +1,6 @@
 ### 欧加真 SM8650/MT6989/MT6897 系列通用6.1内核自动化编译脚本
 - 提供 Github Action 在线编译/shell本地编译双版本脚本。
-## 已实现：
+#### 已实现：
 - [x] 欧加真 SM8650 通用OKI内核（基于一加12 6.1.57/6.1.75/6.1.118 官方内核源码，其他同内核版本非SM8650机型可自行测试，部分机型可完全兼容）
 - [x] 欧加真 MT6989 通用OKI内核（基于一加Ace5竞速版 6.1.115 官方内核源码，其他同内核版本非MT6989机型可自行测试，部分机型可完全兼容）
 - [x] 欧加真 MT6897 通用OKI内核（基于一加平板 6.1.128 官方内核源码，其他同内核版本非MT6897机型可自行测试，部分机型可完全兼容）
@@ -14,7 +14,7 @@
 - [x] 加入一些网络连接性能优化配置选项
 - [x] 加入Re:Kernel支持，与Freezer，NoActive等软件配合降低功耗
 - [x] 加入内核防格基带保护(By [@showdo](https://github.com/showdo))，有效防止恶意格机脚本/程序对系统分区数据的破坏
-## 待实现：
+#### 待实现：
 - [ ] 为非官方支持机型移植完整风驰内核支持（正在补全中）
 - [ ] zram内置化，无需外置zram.ko挂载 ~~（有了新版 lz4&zstd 补丁真的还有必要吗）~~
 - [ ] LXC/Docker 功能支持
@@ -25,7 +25,7 @@
 ##### 
 ##### 
 ##### 
-## 鸣谢
+#### 鸣谢
 - Sukisu Ultra：[SukiSU-Ultra/SukiSU-Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra)
 - susfs4ksu：[ShirkNeko/susfs4ksu](https://github.com/ShirkNeko/susfs4ksu)
 - SukiSU内核补丁：[SukiSU-Ultra/SukiSU_patch](https://github.com/SukiSU-Ultra/SukiSU_patch)
