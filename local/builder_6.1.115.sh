@@ -19,8 +19,8 @@ read -p "应用钩子类型 (manual/syscall/kprobes, m/s/k, 默认m): " APPLY_HO
 APPLY_HOOKS=${APPLY_HOOKS:-m}
 read -p "是否应用 lz4 1.10.0 & zstd 1.5.7 补丁？(y/n，默认：y): " APPLY_LZ4
 APPLY_LZ4=${APPLY_LZ4:-y}
-read -p "是否应用 lz4kd 补丁？(y/n，默认：y): " APPLY_LZ4KD
-APPLY_LZ4KD=${APPLY_LZ4KD:-y}
+read -p "是否应用 lz4kd 补丁？(y/n，默认：n): " APPLY_LZ4KD
+APPLY_LZ4KD=${APPLY_LZ4KD:-n}
 read -p "是否启用网络功能增强优化配置？(y/n，在天玑机型上可能导致bug,建议关闭;默认：n): " APPLY_BETTERNET
 APPLY_BETTERNET=${APPLY_BETTERNET:-n}
 read -p "是否添加 BBR 等一系列拥塞控制算法？(y添加/n禁用/d默认，默认：n): " APPLY_BBR
@@ -155,6 +155,11 @@ else
     patch -p1 -N -F 3 < syscall_hooks.patch || true
   fi
   patch -p1 -N -F 3 < 69_hide_stuff.patch || true
+  #为KernelSU Next添加WildKSU管理器支持
+  cd ./drivers/kernelsu
+  wget https://github.com/WildKernels/kernel_patches/raw/refs/heads/main/next/susfs_fix_patches/v1.5.12/fix_apk_sign.c.patch
+  patch -p2 -N -F 3 < fix_apk_sign.c.patch || true
+  cd ../../
 fi
 cd ../
 
