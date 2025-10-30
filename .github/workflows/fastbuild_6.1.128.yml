@@ -134,6 +134,13 @@ jobs:
             sed -i '$i res=$(echo "$res" | sed '\''s/-dirty//g'\'')' "$f"
           done
 
+      - name: 应用128补丁
+        run: |
+          cd kernel_workspace/common
+          echo "正在添加6.1.128补丁..."
+          wget https://raw.githubusercontent.com/TWO666/oplus_kernel_builder/refs/heads/dev/other_patch/0001-opd2407_128.patch
+          git apply -p1 < 0001-opd2407_128.patch    
+
       - name: 配置ccache目录
         run: |
           echo "CCACHE_DIR=$HOME/.ccache_6.1.128" >> $GITHUB_ENV
