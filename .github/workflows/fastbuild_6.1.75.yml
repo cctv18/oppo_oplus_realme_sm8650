@@ -147,10 +147,10 @@ jobs:
         id: ccache-restore
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-6.1.75-${{ runner.os }}-main
+          key: ccache-neov2-6.1.75-${{ runner.os }}-main
           restore-keys: |
-            ccache-6.1.75-${{ runner.os }}-
-            ccache-6.1.75-
+            ccache-neov2-6.1.75-${{ runner.os }}-
+            ccache-neov2-6.1.75-
       
       - name: 初始化并配置ccache
         run: |
@@ -367,6 +367,7 @@ jobs:
           echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_SUS_MAP=y" >> ./common/arch/arm64/configs/gki_defconfig
           #添加对 Mountify (backslashxx/mountify) 模块的支持
           echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_TMPFS_POSIX_ACL=y" >> ./common/arch/arm64/configs/gki_defconfig
@@ -381,6 +382,8 @@ jobs:
           echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> ./common/arch/arm64/configs/gki_defconfig
           #禁用 defconfig 检查
           sed -i 's/check_defconfig//' ./common/build.config.gki
+          #跳过将uapi标准头安装到 usr/include 目录的不必要操作，节省编译时间
+          echo "CONFIG_HEADERS_INSTALL=n" >> ./common/arch/arm64/configs/gki_defconfig
           
       - name: 启用网络功能增强优化配置
         run: |
@@ -546,7 +549,7 @@ jobs:
           export CCACHE_HARDLINK="true"
           export CCACHE_DIR="${{ env.CCACHE_DIR }}"
           export CCACHE_MAXSIZE="3G"
-          echo "sloppiness = time_macros,include_file_ctime,include_file_mtime,file_stat_matches,file_macro,time_macros,pch_defines" >> "$CCACHE_DIR/ccache.conf"
+          echo "sloppiness = file_stat_matches,include_file_ctime,include_file_mtime,pch_defines,file_macro,time_macros" >> "$CCACHE_DIR/ccache.conf"
           
           cd kernel_workspace/common
           wget https://github.com/cctv18/oppo_oplus_realme_sm8650/raw/refs/heads/main/lib/libfakestat.so

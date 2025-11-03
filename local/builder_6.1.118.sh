@@ -96,7 +96,7 @@ if [[ "$KSU_BRANCH" == "y" ]]; then
   echo ">>> 拉取 SukiSU-Ultra 并设置版本..."
   curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
   cd KernelSU
-  KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 10606)
+  KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 10700)
   export KSU_VERSION=$KSU_VERSION
   sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
 else
@@ -219,6 +219,7 @@ CONFIG_KSU_SUSFS_ENABLE_LOG=y
 CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y
 CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
 CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
+CONFIG_KSU_SUSFS_SUS_MAP=y
 #添加对 Mountify (backslashxx/mountify) 模块的支持
 CONFIG_TMPFS_XATTR=y
 CONFIG_TMPFS_POSIX_ACL=y
@@ -234,6 +235,8 @@ else
 fi
 # 开启O2编译优化配置
 echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> "$DEFCONFIG_FILE"
+#跳过将uapi标准头安装到 usr/include 目录的不必要操作，节省编译时间
+echo "CONFIG_HEADERS_INSTALL=n" >> "$DEFCONFIG_FILE"
 
 # 仅在启用了 KPM 时添加 KPM 支持
 if [[ "$USE_PATCH_LINUX" == "y" || "$USE_PATCH_LINUX" == "Y" ]]; then
@@ -351,12 +354,6 @@ fi
 # ===== 禁用 defconfig 检查 =====
 echo ">>> 禁用 defconfig 检查..."
 sed -i 's/check_defconfig//' ./common/build.config.gki
-
-# ===== 再次替换版本后缀 =====
-echo ">>> 再次替换版本后缀..."
-for f in ./common/scripts/setlocalversion; do
-  sed -i "\$s|echo \"\\\$res\"|echo \"-${CUSTOM_SUFFIX}\"|" "$f"
-done
 
 # ===== 编译内核 =====
 echo ">>> 开始编译内核..."
