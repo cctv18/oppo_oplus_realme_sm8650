@@ -727,7 +727,7 @@ jobs:
           echo "lz4_zstd_enable=$lz4_zstd_enable" >> $GITHUB_ENV
           echo "ssg_enable=$ssg_enable" >> $GITHUB_ENV
           echo "rekernel_enable=$rekernel_enable" >> $GITHUB_ENV
-             
+         
       - name: 创建发布
         id: create_release
         uses: softprops/action-gh-release@v1
