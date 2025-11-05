@@ -116,7 +116,7 @@ if [[ "$KSU_BRANCH" == "y" ]]; then
   git clone https://github.com/ShirkNeko/SukiSU_patch.git
   cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
   if [[ "$APPLY_HOOKS" == "m" || "$APPLY_HOOKS" == "M" ]]; then
-    cp ./SukiSU_patch/hooks/scope_min_manual_hooks_v1.5.patch ./common/
+    cp ./SukiSU_patch/hooks/scope_min_manual_hooks_v1.6.patch ./common/
   fi
   if [[ "$APPLY_HOOKS" == "s" || "$APPLY_HOOKS" == "S" ]]; then
     cp ./SukiSU_patch/hooks/syscall_hooks.patch ./common/
@@ -129,7 +129,7 @@ if [[ "$KSU_BRANCH" == "y" ]]; then
   #临时修复task_mmu.c在部分内核版本补丁后找不到show_pad方法的问题
   sed -i 's/goto show_pad;/return 0;/g' ./fs/proc/task_mmu.c
   if [[ "$APPLY_HOOKS" == "m" || "$APPLY_HOOKS" == "M" ]]; then
-    patch -p1 < scope_min_manual_hooks_v1.5.patch || true
+    patch -p1 < scope_min_manual_hooks_v1.6.patch || true
   fi
   if [[ "$APPLY_HOOKS" == "s" || "$APPLY_HOOKS" == "S" ]]; then
     patch -p1 < syscall_hooks.patch || true
