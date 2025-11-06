@@ -240,7 +240,7 @@ jobs:
             # 验证修改结果
             grep -A10 "REPO_OWNER" kernel/Makefile  # 检查插入点后的内容
             grep "KSU_VERSION_FULL" kernel/Makefile # 确认版本定义存在
-            echo "SukiSU版本号: v${KSU_API_VERSION}-${GIT_COMMIT_HASH}@cctv18"
+            echo "SukiSU版本号: v${KSU_API_VERSION}-${GIT_COMMIT_HASH}@QQ2027330029"
           else
             echo "正在配置KernelSU Next..."
             curl -LSs "https://raw.githubusercontent.com/pershoot/KernelSU-Next/next-susfs/kernel/setup.sh" | bash -s next-susfs
