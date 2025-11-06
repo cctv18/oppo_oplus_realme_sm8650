@@ -21,13 +21,14 @@
 - [x] 欧加真 MT6989 通用OKI内核（基于一加Ace5竞速版 6.1.115 官方内核源码，其他同内核版本非MT6989机型可自行测试，部分机型可完全兼容）
 - [x] 欧加真 MT6897 通用OKI内核（基于一加平板 6.1.128 官方内核源码，其他同内核版本非MT6897机型可自行测试，部分机型可完全兼容）
 - [x] SukiSU Ultra/KernelSU Next双版本KSU可选
-- [x] 引入ccache缓存，优化工具链及编译流程，二次编译时间可缩短至约6min (注：首次使用ccache由于需要创建缓存速度会比较慢(约20-24min)，从第二次开始ccache才会生效加速编译，加速后单次编译时间约6~11min，具体时间随服务器负载情况而浮动；之后除非缓存出现问题，如无法加速等，可无需再清理ccache缓存)
+- [x] 引入ccache缓存及大量独家编译流程优化，二次编译时间可稳定在约6min (注：首次使用ccache由于需要创建缓存速度会比较慢，约22min，从第二次开始ccache才会生效加速编译，加速后单次编译时间约6min(更改内核编译选项会导致include/generated/autoconf.h改变，且绝大部分源码编译时会间接引用这个头文件，故会导致二次编译速度有所下降，下降至约10分钟，若再次使用首次缓存时的配置可恢复至约6分钟，如需要长期修改配置选项建议清空ccache缓存再用新的配置重建缓存)；由于现在GitHub Action的机制，距离上一次创建缓存较长时间后缓存可能会被自动清除，此时编译会自动重建缓存)
 - [x] 引入O2编译优化，改善内核运行性能
-- [x] 可选manual/kprobes钩子模式：kprobes钩子模式下支持切换至sus su模式（类似面具的su实现，用于兼容一些程序的运行）
+- [x] 可选manual/kprobes/syscall钩子模式(kprobes钩子模式下支持切换至sus su模式)
 - [x] lz4 1.10.0 & zstd 1.5.7 算法更新&优化补丁(来自[@ferstar](https://github.com/ferstar), 移植by [@Xiaomichael](https://github.com/Xiaomichael))
 - [x] 可选加入 BBR/Brutal 及一系列 tcp 拥塞控制算法
 - [x] 三星SSG IO调度器移植（目前已知仅在一加12上会导致无法正常启动，原因尚不明确，待进一步研究修复）
-- [x] 加入一些网络连接性能优化配置选项
+- [x] 加入一些网络功能拓展配置选项（用于为ipset及需要iptables等高级网络功能内核支持的程序提供支持）
+- [x] 添加了对[Mountify](https://github.com/backslashxx/mountify)模块的支持
 - [x] 加入Re:Kernel支持，与Freezer，NoActive等软件配合降低功耗
 - [x] 加入内核防格基带保护(By [@showdo](https://github.com/showdo))，有效防止恶意格机脚本/程序对系统分区数据的破坏
 ## 待实现：
