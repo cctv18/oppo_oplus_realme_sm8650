@@ -65,7 +65,7 @@ on:
         description: '是否启用三星SSG IO调度器及Re-Kernel支持(0=均不安装,1=安装SSG IO调度器,2=安装Re-Kernel,3=均安装,默认1)'
         required: true
         type: choice
-        default: '1'
+        default: '2'
         options:
           - '0'
           - '1'
@@ -86,6 +86,8 @@ on:
         required: false
         type: string
         default: ''
+  schedule:
+    - cron: '0 12 * * *'  # 每天UTC时间12:00（北京时间20:00）自动执行
 
 jobs:
   build:
