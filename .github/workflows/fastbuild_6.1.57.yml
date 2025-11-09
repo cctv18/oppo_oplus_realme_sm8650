@@ -86,8 +86,6 @@ on:
         required: false
         type: string
         default: ''
-  schedule:
-    - cron: '0 12 * * *'  # 每天UTC时间12:00（北京时间20:00）自动执行
 
 jobs:
   build:
