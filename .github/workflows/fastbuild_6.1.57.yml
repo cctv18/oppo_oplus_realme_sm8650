@@ -232,7 +232,7 @@ jobs:
             ' kernel/Makefile > kernel/Makefile.tmp && mv kernel/Makefile.tmp kernel/Makefile
 
             # 生成自定义版本号（基于提交计数）, 失败时使用 114514
-            KSU_VERSION=$(expr $(git rev-list --count main) + 10700 2>/dev/null || echo 114514)
+            KSU_VERSION=$(expr $(git rev-list --count main) + 37185 2>/dev/null || echo 114514)
             # 存储版本号到 GitHub 环境变量
             echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
             echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
@@ -620,7 +620,7 @@ jobs:
           if [[ ${{ github.event.inputs.kpm_enable }} == 'true' && ${{ github.event.inputs.ksu_type }} == "sukisu" ]]; then
             echo "正在应用KPM并修补内核..."
             cd kernel_workspace/common/out/arch/arm64/boot
-            curl -LO https://github.com/ShirkNeko/SukiSU_KernelPatch_patch/releases/download/0.12.0/patch_linux
+            curl -LO https://github.com/SukiSU-Ultra/SukiSU_KernelPatch_patch/releases/latest/download/patch_linux
             chmod +x patch_linux
             ./patch_linux
             rm -f Image

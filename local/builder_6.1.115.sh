@@ -64,7 +64,7 @@ echo ">>> 安装构建依赖..."
 sudo apt-mark hold firefox && apt-mark hold libc-bin && apt-mark hold man-db
 sudo rm -rf /var/lib/man-db/auto-update
 sudo apt-get update
-sudo apt-get install --no-install-recommends -y curl bison flex clang binutils dwarves git lld pahole zip perl make gcc python3 python-is-python3 bc libssl-dev libelf-dev
+sudo apt-get install --no-install-recommends -y curl bison flex clang binutils dwarves git lld pahole zip perl make gcc python3 python-is-python3 bc libssl-dev libelf-dev cpio
 sudo rm -rf ./llvm.sh && wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh
 sudo ./llvm.sh 20 all
 
@@ -96,7 +96,7 @@ if [[ "$KSU_BRANCH" == "y" ]]; then
   echo ">>> 拉取 SukiSU-Ultra 并设置版本..."
   curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
   cd KernelSU
-  KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 10700)
+  KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 37185)
   export KSU_VERSION=$KSU_VERSION
   sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
 else
@@ -366,7 +366,7 @@ OUT_DIR="$WORKDIR/kernel_workspace/common/out/arch/arm64/boot"
 if [[ "$USE_PATCH_LINUX" == "y" || "$USE_PATCH_LINUX" == "Y" ]]; then
   echo ">>> 使用 patch_linux 工具处理输出..."
   cd "$OUT_DIR"
-  wget https://github.com/ShirkNeko/SukiSU_KernelPatch_patch/releases/download/0.12.0/patch_linux
+  wget https://github.com/SukiSU-Ultra/SukiSU_KernelPatch_patch/releases/latest/download/patch_linux
   chmod +x patch_linux
   ./patch_linux
   rm -f Image
@@ -416,10 +416,13 @@ if [[ "$USE_PATCH_LINUX" == "y" || "$USE_PATCH_LINUX" == "Y" ]]; then
 fi
 if [[ "$APPLY_BBR" == "y" || "$APPLY_BBR" == "Y" ]]; then
   ZIP_NAME="${ZIP_NAME}-bbr"
+fi
 if [[ "$APPLY_SSG" == "y" || "$APPLY_SSG" == "Y" ]]; then
   ZIP_NAME="${ZIP_NAME}-ssg"
+fi
 if [[ "$APPLY_REKERNEL" == "y" || "$APPLY_REKERNEL" == "Y" ]]; then
   ZIP_NAME="${ZIP_NAME}-rek"
+fi
 if [[ "$APPLY_BBG" == "y" || "$APPLY_BBG" == "Y" ]]; then
   ZIP_NAME="${ZIP_NAME}-bbg"
 fi
