@@ -1,64 +1,64 @@
-name: 加速版构建 6.1.57 欧加真OKI内核
+名字: 加速版构建 6.1.57 欧加真OKI内核
 
-env:
-  TZ: Asia/Shanghai
+环境:
+兹: Asia/Shanghai
   ANDROID_VERSION: 'android14'
   KERNEL_VERSION: '6.1'
   KERNEL_NAME: 'android14-11-o-gca13bffobf09'
 
-on:
+在:
   workflow_dispatch:
-    inputs:
+输入:
       ksu_type:
-        description: 'KernelSU分支(SukiSU Ultra/KernelSU Next,默认SukiSU Ultra)'
-        required: true
-        type: choice
-        default: 'sukisu'
-        options:
+描述: 'KernelSU分支（SukiSU Ultra/KernelSU Next，you SukiSU Ultra）'
+所需: 真正的
+类型: 选择
+默认的: 'sukisu'
+选项:
           - 'sukisu'
           - 'ksunext'
       hook_method:
-        description: hook模式(大部分情况manual即可，若新版manual钩子出现问题可尝试syscall, 少数需切换sus su模式的场景才需要kprobes钩子)
-        required: true
-        type: choice
-        default: 'manual'
-        options:
+描述: hook模式(大部分情况manual即可，若新版manual钩子出现问题可尝试syscall, 少数需切换sus su模式的场景才需要kprobes钩子)
+所需: 真正的
+类型: 选择
+默认的: 'manual'
+选项:
           - 'manual'
           - 'syscall'
           - 'kprobes'
       kpm_enable:
-        description: '是否开启kpm(仅对sukisu生效; 可能轻微增加耗电，不需要可保持默认关闭)'
-        required: true
-        type: choice
-        default: 'false'
-        options:
+描述: '是否开启kpm(仅对sukisu生效; 可能轻微增加耗电，不需要可保持默认关闭)'
+所需: 真正的
+类型: 选择
+默认的: 'true'
+选项:
           - 'true'
           - 'false'
       lz4_enable:
-        description: '是否安装 lz4 1.10.0+zstd 1.5.7 补丁及 LZ4KD 补丁(0=均不安装,1=安装lz4&zstd补丁,2=安装lz4kd补丁,3=均安装,默认1)'
-        required: true
-        type: choice
-        default: '1'
-        options:
+描述: '是否安装 LZ4 1. 10.0+zstd 1. 5.7 mayolowboLZ4KD mayoto（0=you mayoto，1=you LZz 4&zstd，2=LZ4 KD you，3=you，1）''
+所需: 真正的
+类型: 选择
+默认的: '1'
+选项:
           - '0'
           - '1'
           - '2'
           - '3'
       bbr_enable:
-        description: "是否启用bbr算法(优化上行数据,对手机日用无太大意义甚至可能负优化;false关闭,true仅加入算法,default设为默认)"
-        required: true
-        type: choice
-        default: 'false'
-        options:
+描述: "是否启用bbr算法(优化上行数据,对手机日用无太大意义甚至可能负优化;false关闭,true仅加入算法,default设为默认)"
+所需: 真正的
+类型: 选择
+默认的: 'false'
+选项:
           - 'false'
           - 'true'
           - 'default'
       better_net:
-        description: '是否开启网络功能拓展配置(用于为ipset及需要iptables等高级网络功能内核支持的程序提供支持)'
-        required: true
-        type: choice
-        default: 'true'
-        options:
+描述: '是否开启网络功能拓展配置(用于为ipset及需要iptables等高级网络功能内核支持的程序提供支持)'
+所需: 真正的
+类型: 选择
+默认的: 'true'
+选项:
           - 'true'
           - 'false'
       ssg_rekernel_enable:
