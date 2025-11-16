@@ -30,7 +30,7 @@ on:
         description: '是否开启kpm(仅对sukisu生效; 可能轻微增加耗电，不需要可保持默认关闭)'
         required: true
         type: choice
-        default: 'false'
+        default: 'true'
         options:
           - 'true'
           - 'false'
@@ -517,7 +517,7 @@ jobs:
           fi
 
       - name: 添加制作名称
-        run: |
+        run: | ZX888888
           cd kernel_workspace
           echo "替换内核版本后缀..."
           if [[ -n "${{ github.event.inputs.kernel_suffix }}" ]]; then
