@@ -13,10 +13,8 @@ read -p "请输入自定义内核后缀（默认：android14-11-o-gca13bffobf09�
 CUSTOM_SUFFIX=${CUSTOM_SUFFIX:-android14-11-o-gca13bffobf09}
 read -p "是否启用 KPM？(y/n，默认：n): " USE_PATCH_LINUX
 USE_PATCH_LINUX=${USE_PATCH_LINUX:-n}
-read -p "KSU分支版本(y=SukiSU Ultra, n=KernelSU Next, 默认：y): " KSU_BRANCH
+read -p "KSU分支版本(y=SukiSU Ultra, n=KernelSU Next, m=MKSU, k=KSU, 默认：y): " KSU_BRANCH
 KSU_BRANCH=${KSU_BRANCH:-y}
-read -p "应用钩子类型 (manual/syscall/kprobes, m/s/k, 默认m): " APPLY_HOOKS
-APPLY_HOOKS=${APPLY_HOOKS:-m}
 read -p "是否应用 lz4 1.10.0 & zstd 1.5.7 补丁？(y/n，默认：y): " APPLY_LZ4
 APPLY_LZ4=${APPLY_LZ4:-y}
 read -p "是否应用 lz4kd 补丁？(y/n，默认：n): " APPLY_LZ4KD
@@ -34,8 +32,12 @@ APPLY_BBG=${APPLY_BBG:-y}
 
 if [[ "$KSU_BRANCH" == "y" || "$KSU_BRANCH" == "Y" ]]; then
   KSU_TYPE="SukiSU Ultra"
-else
+elif [[ "$KSU_BRANCH" == "n" || "$KSU_BRANCH" == "N" ]]; then
   KSU_TYPE="KernelSU Next"
+elif [[ "$KSU_BRANCH" == "m" || "$KSU_BRANCH" == "M" ]]; then
+  KSU_TYPE="MKSU"
+else
+  KSU_TYPE="KernelSU"
 fi
 
 echo
@@ -44,7 +46,6 @@ echo "适用机型: $MANIFEST"
 echo "自定义内核后缀: -$CUSTOM_SUFFIX"
 echo "KSU分支版本: $KSU_TYPE"
 echo "启用 KPM: $USE_PATCH_LINUX"
-echo "钩子类型: $APPLY_HOOKS"
 echo "应用 lz4&zstd 补丁: $APPLY_LZ4"
 echo "应用 lz4kd 补丁: $APPLY_LZ4KD"
 echo "应用网络功能增强优化配置: $APPLY_BETTERNET"
@@ -92,35 +93,41 @@ for f in ./common/scripts/setlocalversion; do
 done
 
 # ===== 拉取 KSU 并设置版本号 =====
-if [[ "$KSU_BRANCH" == "y" ]]; then
+if [[ "$KSU_BRANCH" == "y" || "$KSU_BRANCH" == "Y" ]]; then
   echo ">>> 拉取 SukiSU-Ultra 并设置版本..."
   curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
   cd KernelSU
   KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 37185)
   export KSU_VERSION=$KSU_VERSION
   sed -i "s/DKSU_VERSION=12800/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
-else
+elif [[ "$KSU_BRANCH" == "n" || "$KSU_BRANCH" == "N" ]]; then
   echo ">>> 拉取 KernelSU Next 并设置版本..."
   curl -LSs "https://raw.githubusercontent.com/pershoot/KernelSU-Next/next-susfs/kernel/setup.sh" | bash -s next-susfs
   cd KernelSU-Next
   KSU_VERSION=$(expr $(curl -sI "https://api.github.com/repos/pershoot/KernelSU-Next/commits?sha=next&per_page=1" | grep -i "link:" | sed -n 's/.*page=\([0-9]*\)>; rel="last".*/\1/p') "+" 10200)
   sed -i "s/DKSU_VERSION=11998/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
+elif [[ "$KSU_BRANCH" == "m" || "$KSU_BRANCH" == "M" ]]; then
+  echo ">>> 拉取 MKSU (5ec1cff/KernelSU) 并设置版本..."
+  curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/refs/heads/main/kernel/setup.sh" | bash -s main
+  cd ./KernelSU
+  KSU_VERSION=$(expr $(curl -sI "https://api.github.com/repos/5ec1cff/KernelSU/commits?sha=main&per_page=1" | grep -i "link:" | sed -n 's/.*page=\([0-9]*\)>; rel="last".*/\1/p') "+" 20000)
+  sed -i "s/DKSU_VERSION=16/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
+else
+  echo ">>> 拉取 KernelSU (tiann/KernelSU) 并设置版本..."
+  curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/refs/heads/main/kernel/setup.sh" | bash -s main
+  cd ./KernelSU
+  KSU_VERSION=$(expr $(curl -sI "https://api.github.com/repos/tiann/KernelSU/commits?sha=main&per_page=1" | grep -i "link:" | sed -n 's/.*page=\([0-9]*\)>; rel="last".*/\1/p') "+" 20000)
+  sed -i "s/DKSU_VERSION=16/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
 fi
 
 # ===== 克隆补丁仓库&应用 SUSFS 补丁 =====
 echo ">>> 克隆补丁仓库..."
 cd "$WORKDIR/kernel_workspace"
 echo ">>> 应用 SUSFS&hook 补丁..."
-if [[ "$KSU_BRANCH" == "y" ]]; then
+if [[ "$KSU_BRANCH" == "y" || "$KSU_BRANCH" == "Y" ]]; then
   git clone https://github.com/shirkneko/susfs4ksu.git -b gki-android14-6.1
   git clone https://github.com/ShirkNeko/SukiSU_patch.git
   cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
-  if [[ "$APPLY_HOOKS" == "m" || "$APPLY_HOOKS" == "M" ]]; then
-    cp ./SukiSU_patch/hooks/scope_min_manual_hooks_v1.6.patch ./common/
-  fi
-  if [[ "$APPLY_HOOKS" == "s" || "$APPLY_HOOKS" == "S" ]]; then
-    cp ./SukiSU_patch/hooks/syscall_hooks.patch ./common/
-  fi
   cp ./SukiSU_patch/69_hide_stuff.patch ./common/
   cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
   cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
@@ -128,42 +135,65 @@ if [[ "$KSU_BRANCH" == "y" ]]; then
   patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
   #临时修复task_mmu.c在部分内核版本补丁后找不到show_pad方法的问题
   sed -i 's/goto show_pad;/return 0;/g' ./fs/proc/task_mmu.c
-  if [[ "$APPLY_HOOKS" == "m" || "$APPLY_HOOKS" == "M" ]]; then
-    patch -p1 < scope_min_manual_hooks_v1.6.patch || true
-  fi
-  if [[ "$APPLY_HOOKS" == "s" || "$APPLY_HOOKS" == "S" ]]; then
-    patch -p1 < syscall_hooks.patch || true
-  fi
   patch -p1 -F 3 < 69_hide_stuff.patch || true
-else
+elif [[ "$KSU_BRANCH" == "n" || "$KSU_BRANCH" == "N" ]]; then
   git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
+  #由于KernelSU Next尚未更新并适配susfs 2.0.0，故回退至susfs 1.5.12
+  cd susfs4ksu && git checkout a162e2469d0b472545e5e46457eee171c0975fb0 && cd ..
   git clone https://github.com/WildKernels/kernel_patches.git
   cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
   cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
   cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-  if [[ "$APPLY_HOOKS" == "m" || "$APPLY_HOOKS" == "M" ]]; then
-    cp ./kernel_patches/next/scope_min_manual_hooks_v1.5.patch ./common/
-  fi
-  if [[ "$APPLY_HOOKS" == "s" || "$APPLY_HOOKS" == "S" ]]; then
-    cp ./kernel_patches/next/syscall_hooks.patch ./common/
-  fi
+  cp ./kernel_patches/next/scope_min_manual_hooks_v1.5.patch ./common/
   cp ./kernel_patches/69_hide_stuff.patch ./common/
   cd ./common
   patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
   #临时修复task_mmu.c在部分内核版本补丁后找不到show_pad方法的问题
   sed -i 's/goto show_pad;/return 0;/g' ./fs/proc/task_mmu.c
-  if [[ "$APPLY_HOOKS" == "m" || "$APPLY_HOOKS" == "M" ]]; then
-    patch -p1 -N -F 3 < scope_min_manual_hooks_v1.5.patch || true
-  fi
-  if [[ "$APPLY_HOOKS" == "s" || "$APPLY_HOOKS" == "S" ]]; then
-    patch -p1 -N -F 3 < syscall_hooks.patch || true
-  fi
+  patch -p1 -N -F 3 < scope_min_manual_hooks_v1.5.patch || true
   patch -p1 -N -F 3 < 69_hide_stuff.patch || true
   #为KernelSU Next添加WildKSU管理器支持
   cd ./drivers/kernelsu
   wget https://github.com/WildKernels/kernel_patches/raw/refs/heads/main/next/susfs_fix_patches/v1.5.12/fix_apk_sign.c.patch
   patch -p2 -N -F 3 < fix_apk_sign.c.patch || true
   cd ../../
+elif [[ "$KSU_BRANCH" == "m" || "$KSU_BRANCH" == "M" ]]; then
+  git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
+  git clone https://github.com/ShirkNeko/SukiSU_patch.git
+  cp ./susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU/
+  cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
+  cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
+  cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+  cp ./SukiSU_patch/69_hide_stuff.patch ./common/
+  cd ./KernelSU
+  #为MKSU修正susfs 2.0.0补丁
+  sed -i 's/@@ -13,6 +13,10 @@/@@ -13,7 +13,11 @@/' 10_enable_susfs_for_ksu.patch
+  sed -i '/ #include <linux\/uaccess\.h>/ { N; s| #include <linux/uaccess\.h>\n #include <linux/version\.h>|&\n #include <linux/pid.h>| }' 10_enable_susfs_for_ksu.patch
+  patch -p1 < 10_enable_susfs_for_ksu.patch || true
+  wget https://github.com/cctv18/oppo_oplus_realme_sm8650/raw/refs/heads/main/other_patch/fix_umount.patch
+  patch -p1 < fix_umount.patch || true
+  cd ../common
+  patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
+  #临时修复task_mmu.c在部分内核版本补丁后找不到show_pad方法的问题
+  sed -i 's/goto show_pad;/return 0;/g' ./fs/proc/task_mmu.c
+  patch -p1 -N -F 3 < 69_hide_stuff.patch || true
+else
+  git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
+  git clone https://github.com/ShirkNeko/SukiSU_patch.git
+  cp ./susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU/
+  cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
+  cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
+  cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+  cp ./SukiSU_patch/69_hide_stuff.patch ./common/
+  cd ./KernelSU
+  patch -p1 < 10_enable_susfs_for_ksu.patch || true
+  wget https://github.com/cctv18/oppo_oplus_realme_sm8650/raw/refs/heads/main/other_patch/fix_umount.patch
+  patch -p1 < fix_umount.patch || true
+  cd ../common
+  patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
+  #临时修复task_mmu.c在部分内核版本补丁后找不到show_pad方法的问题
+  sed -i 's/goto show_pad;/return 0;/g' ./fs/proc/task_mmu.c
+  patch -p1 -N -F 3 < 69_hide_stuff.patch || true
 fi
 cd ../
 
@@ -229,14 +259,6 @@ CONFIG_TMPFS_XATTR=y
 CONFIG_TMPFS_POSIX_ACL=y
 EOF
 
-if [[ "$APPLY_HOOKS" == "k" || "$APPLY_HOOKS" == "K" ]]; then
-  echo "CONFIG_KSU_SUSFS_SUS_SU=y" >> "$DEFCONFIG_FILE"
-  echo "CONFIG_KSU_MANUAL_HOOK=n" >> "$DEFCONFIG_FILE"
-  echo "CONFIG_KSU_KPROBES_HOOK=y" >> "$DEFCONFIG_FILE"
-else
-  echo "CONFIG_KSU_MANUAL_HOOK=y" >> "$DEFCONFIG_FILE"
-  echo "CONFIG_KSU_SUSFS_SUS_SU=n" >>  "$DEFCONFIG_FILE"
-fi
 # 开启O2编译优化配置
 echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> "$DEFCONFIG_FILE"
 #跳过将uapi标准头安装到 usr/include 目录的不必要操作，节省编译时间
@@ -402,13 +424,6 @@ fi
 # ===== 生成 ZIP 文件名 =====
 ZIP_NAME="Anykernel3-${MANIFEST}"
 
-if [[ "$APPLY_HOOKS" == "m" || "$APPLY_HOOKS" == "M" ]]; then
-  ZIP_NAME="${ZIP_NAME}-manual"
-elif [[ "$APPLY_HOOKS" == "s" || "$APPLY_HOOKS" == "S" ]]; then
-  ZIP_NAME="${ZIP_NAME}-syscall"
-else
-  ZIP_NAME="${ZIP_NAME}-kprobe"
-fi
 if [[ "$APPLY_LZ4KD" == "y" || "$APPLY_LZ4KD" == "Y" ]]; then
   ZIP_NAME="${ZIP_NAME}-lz4kd"
 fi
