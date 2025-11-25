@@ -11,6 +11,8 @@ echo ">>> 读取用户配置..."
 MANIFEST=${MANIFEST:-oppo+oplus+realme}
 read -p "请输入自定义内核后缀（默认：android14-11-o-gca13bffobf09）: " CUSTOM_SUFFIX
 CUSTOM_SUFFIX=${CUSTOM_SUFFIX:-android14-11-o-gca13bffobf09}
+read -p "是否启用susfs？(y/n，默认：y): " APPLY_SUSFS
+APPLY_SUSFS=${APPLY_SUSFS:-y}
 read -p "是否启用 KPM？(y/n，默认：n): " USE_PATCH_LINUX
 USE_PATCH_LINUX=${USE_PATCH_LINUX:-n}
 read -p "KSU分支版本(y=SukiSU Ultra, n=KernelSU Next, m=MKSU, k=KSU, 默认：y): " KSU_BRANCH
@@ -45,6 +47,7 @@ echo "===== 配置信息 ====="
 echo "适用机型: $MANIFEST"
 echo "自定义内核后缀: -$CUSTOM_SUFFIX"
 echo "KSU分支版本: $KSU_TYPE"
+echo "启用susfs: $APPLY_SUSFS"
 echo "启用 KPM: $USE_PATCH_LINUX"
 echo "应用 lz4&zstd 补丁: $APPLY_LZ4"
 echo "应用 lz4kd 补丁: $APPLY_LZ4KD"
@@ -106,6 +109,10 @@ elif [[ "$KSU_BRANCH" == "n" || "$KSU_BRANCH" == "N" ]]; then
   cd KernelSU-Next
   KSU_VERSION=$(expr $(curl -sI "https://api.github.com/repos/pershoot/KernelSU-Next/commits?sha=next&per_page=1" | grep -i "link:" | sed -n 's/.*page=\([0-9]*\)>; rel="last".*/\1/p') "+" 10200)
   sed -i "s/DKSU_VERSION=11998/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
+  #为KernelSU Next添加WildKSU管理器支持
+  cd ../common/drivers/kernelsu
+  wget https://github.com/WildKernels/kernel_patches/raw/refs/heads/main/next/susfs_fix_patches/v1.5.12/fix_apk_sign.c.patch
+  patch -p2 -N -F 3 < fix_apk_sign.c.patch || true
 elif [[ "$KSU_BRANCH" == "m" || "$KSU_BRANCH" == "M" ]]; then
   echo ">>> 拉取 MKSU (5ec1cff/KernelSU) 并设置版本..."
   curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/refs/heads/main/kernel/setup.sh" | bash -s main
@@ -124,7 +131,7 @@ fi
 echo ">>> 克隆补丁仓库..."
 cd "$WORKDIR/kernel_workspace"
 echo ">>> 应用 SUSFS&hook 补丁..."
-if [[ "$KSU_BRANCH" == "y" || "$KSU_BRANCH" == "Y" ]]; then
+if [[ "$KSU_BRANCH" == [yY] && "$APPLY_SUSFS" == [yY] ]]; then
   git clone https://github.com/shirkneko/susfs4ksu.git -b gki-android14-6.1
   git clone https://github.com/ShirkNeko/SukiSU_patch.git
   cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
@@ -136,7 +143,7 @@ if [[ "$KSU_BRANCH" == "y" || "$KSU_BRANCH" == "Y" ]]; then
   #临时修复task_mmu.c在部分内核版本补丁后找不到show_pad方法的问题
   sed -i 's/goto show_pad;/return 0;/g' ./fs/proc/task_mmu.c
   patch -p1 -F 3 < 69_hide_stuff.patch || true
-elif [[ "$KSU_BRANCH" == "n" || "$KSU_BRANCH" == "N" ]]; then
+elif [[ "$KSU_BRANCH" == [nN] && "$APPLY_SUSFS" == [yY] ]]; then
   git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
   #由于KernelSU Next尚未更新并适配susfs 2.0.0，故回退至susfs 1.5.12
   cd susfs4ksu && git checkout a162e2469d0b472545e5e46457eee171c0975fb0 && cd ..
@@ -152,12 +159,7 @@ elif [[ "$KSU_BRANCH" == "n" || "$KSU_BRANCH" == "N" ]]; then
   sed -i 's/goto show_pad;/return 0;/g' ./fs/proc/task_mmu.c
   patch -p1 -N -F 3 < scope_min_manual_hooks_v1.5.patch || true
   patch -p1 -N -F 3 < 69_hide_stuff.patch || true
-  #为KernelSU Next添加WildKSU管理器支持
-  cd ./drivers/kernelsu
-  wget https://github.com/WildKernels/kernel_patches/raw/refs/heads/main/next/susfs_fix_patches/v1.5.12/fix_apk_sign.c.patch
-  patch -p2 -N -F 3 < fix_apk_sign.c.patch || true
-  cd ../../
-elif [[ "$KSU_BRANCH" == "m" || "$KSU_BRANCH" == "M" ]]; then
+elif [[ "$KSU_BRANCH" == [mM] && "$APPLY_SUSFS" == [yY] ]]; then
   git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
   git clone https://github.com/ShirkNeko/SukiSU_patch.git
   cp ./susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU/
@@ -177,7 +179,7 @@ elif [[ "$KSU_BRANCH" == "m" || "$KSU_BRANCH" == "M" ]]; then
   #临时修复task_mmu.c在部分内核版本补丁后找不到show_pad方法的问题
   sed -i 's/goto show_pad;/return 0;/g' ./fs/proc/task_mmu.c
   patch -p1 -N -F 3 < 69_hide_stuff.patch || true
-else
+elif [[ "$KSU_BRANCH" == [kK] && "$APPLY_SUSFS" == [yY] ]]; then
   git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
   git clone https://github.com/ShirkNeko/SukiSU_patch.git
   cp ./susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU/
@@ -194,6 +196,8 @@ else
   #临时修复task_mmu.c在部分内核版本补丁后找不到show_pad方法的问题
   sed -i 's/goto show_pad;/return 0;/g' ./fs/proc/task_mmu.c
   patch -p1 -N -F 3 < 69_hide_stuff.patch || true
+else
+  echo ">>> 未开启susfs，跳过susfs补丁配置..."
 fi
 cd ../
 
@@ -236,28 +240,27 @@ echo ">>> 添加 defconfig 配置项..."
 DEFCONFIG_FILE=./common/arch/arm64/configs/gki_defconfig
 
 # 写入通用 SUSFS/KSU 配置
-cat >> "$DEFCONFIG_FILE" <<EOF
-CONFIG_KSU=y
-CONFIG_KSU_SUSFS=y
-CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y
-CONFIG_KSU_SUSFS_SUS_PATH=y
-CONFIG_KSU_SUSFS_SUS_MOUNT=y
-CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y
-CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y
-CONFIG_KSU_SUSFS_SUS_KSTAT=y
-#CONFIG_KSU_SUSFS_SUS_OVERLAYFS is not set
-CONFIG_KSU_SUSFS_TRY_UMOUNT=y
-CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y
-CONFIG_KSU_SUSFS_SPOOF_UNAME=y
-CONFIG_KSU_SUSFS_ENABLE_LOG=y
-CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y
-CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
-CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
-CONFIG_KSU_SUSFS_SUS_MAP=y
+echo "CONFIG_KSU=y" >> "$DEFCONFIG_FILE"
+if [[ "$APPLY_SUSFS" == [yY] ]]; then
+  echo "CONFIG_KSU_SUSFS=y" >> "$DEFCONFIG_FILE"
+  echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> "$DEFCONFIG_FILE"
+  echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$DEFCONFIG_FILE"
+  echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> "$DEFCONFIG_FILE"
+  echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> "$DEFCONFIG_FILE"
+  echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> "$DEFCONFIG_FILE"
+  echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> "$DEFCONFIG_FILE"
+  echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> "$DEFCONFIG_FILE"
+  echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> "$DEFCONFIG_FILE"
+  echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> "$DEFCONFIG_FILE"
+  echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> "$DEFCONFIG_FILE"
+  echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$DEFCONFIG_FILE"
+  echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$DEFCONFIG_FILE"
+  echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$DEFCONFIG_FILE"
+  echo "CONFIG_KSU_SUSFS_SUS_MAP=y" >> "$DEFCONFIG_FILE"
+fi
 #添加对 Mountify (backslashxx/mountify) 模块的支持
-CONFIG_TMPFS_XATTR=y
-CONFIG_TMPFS_POSIX_ACL=y
-EOF
+echo "CONFIG_TMPFS_XATTR=y" >> "$DEFCONFIG_FILE"
+echo "CONFIG_TMPFS_POSIX_ACL=y" >> "$DEFCONFIG_FILE"
 
 # 开启O2编译优化配置
 echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> "$DEFCONFIG_FILE"
@@ -424,6 +427,9 @@ fi
 # ===== 生成 ZIP 文件名 =====
 ZIP_NAME="Anykernel3-${MANIFEST}"
 
+if [[ "$APPLY_SUSFS" == "y" || "$APPLY_SUSFS" == "Y" ]]; then
+  ZIP_NAME="${ZIP_NAME}-susfs"
+fi
 if [[ "$APPLY_LZ4KD" == "y" || "$APPLY_LZ4KD" == "Y" ]]; then
   ZIP_NAME="${ZIP_NAME}-lz4kd"
 fi
