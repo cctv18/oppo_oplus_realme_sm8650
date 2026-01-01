@@ -179,7 +179,7 @@ jobs:
           cd kernel_workspace
           if [[ ${{ github.event.inputs.ksu_type }} == "sukisu" ]]; then
             echo "正在配置SukiSU Ultra..."
-            curl -LSs "https://raw.githubusercontent.com/ShirkNeko/SukiSU-Ultra/refs/heads/main/kernel/setup.sh" | bash -s tmp-builtin
+            curl -LSs "https://raw.bgithub.xyz/ShirkNeko/SukiSU-Ultra/refs/heads/main/kernel/setup.sh" | bash -s tmp-builtin
             cd ./KernelSU
             # 获取当前 Git 提交的短哈希 (8位)
             GIT_COMMIT_HASH=$(git rev-parse --short=8 HEAD)
@@ -188,7 +188,7 @@ jobs:
             # 尝试最多 3 次获取 KernelSU API 版本号
             for i in {1..3}; do
               # 从远程 Kbuild 中提取 KSU_API_VERSION
-              KSU_API_VERSION=$(curl -s "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/tmp-builtin/kernel/Kbuild" | 
+              KSU_API_VERSION=$(curl -s "https://raw.bgithub.xyz/SukiSU-Ultra/SukiSU-Ultra/tmp-builtin/kernel/Kbuild" | 
                 # 查找第一个包含版本定义的行
                 grep -m1 "KSU_VERSION_API :=" | 
                 # 提取等号后的值
@@ -235,7 +235,7 @@ jobs:
             echo "SukiSU版本号: v${KSU_API_VERSION}-${GIT_COMMIT_HASH}@cctv18"
           elif [[ ${{ github.event.inputs.ksu_type }} == "ksunext" ]]; then
             echo "正在配置KernelSU Next..."
-            curl -LSs "https://raw.githubusercontent.com/pershoot/KernelSU-Next/next-susfs/kernel/setup.sh" | bash -s next-susfs
+            curl -LSs "https://raw.bgithub.xyz/pershoot/KernelSU-Next/next-susfs/kernel/setup.sh" | bash -s next-susfs
             cd KernelSU-Next
             KSU_VERSION=$(expr $(curl -sI "https://api.github.com/repos/pershoot/KernelSU-Next/commits?sha=stable&per_page=1" | grep -i "link:" | sed -n 's/.*page=\([0-9]*\)>; rel="last".*/\1/p') "+" 10200)
             echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
@@ -247,7 +247,7 @@ jobs:
             patch -p2 -N -F 3 < fix_apk_sign.c.patch || true
           elif [[ ${{ github.event.inputs.ksu_type }} == "mksu" ]]; then
             echo "正在配置 MKSU (5ec1cff/KernelSU)..."
-            curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/refs/heads/main/kernel/setup.sh" | bash -s main
+            curl -LSs "https://raw.bgithub.xyz/5ec1cff/KernelSU/refs/heads/main/kernel/setup.sh" | bash -s main
             cd ./KernelSU
             KSU_VERSION=$(expr $(curl -sI "https://api.github.com/repos/5ec1cff/KernelSU/commits?sha=main&per_page=1" | grep -i "link:" | sed -n 's/.*page=\([0-9]*\)>; rel="last".*/\1/p') "+" 30000)
             echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
@@ -255,7 +255,7 @@ jobs:
             sed -i "s/DKSU_VERSION=16/DKSU_VERSION=${KSU_VERSION}/" kernel/Kbuild
           else
             echo "正在配置原版 KernelSU (tiann/KernelSU)..."
-            curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/refs/heads/main/kernel/setup.sh" | bash -s main
+            curl -LSs "https://raw.bgithub.xyz/tiann/KernelSU/refs/heads/main/kernel/setup.sh" | bash -s main
             cd ./KernelSU
             KSU_VERSION=$(expr $(curl -sI "https://api.github.com/repos/tiann/KernelSU/commits?sha=main&per_page=1" | grep -i "link:" | sed -n 's/.*page=\([0-9]*\)>; rel="last".*/\1/p') "+" 30000)
             echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
@@ -284,7 +284,9 @@ jobs:
             wget https://github.com/cctv18/oppo_oplus_realme_sm8650/raw/refs/heads/main/other_patch/scope_min_manual_hooks_v1.5.patch -O ./common/scope_min_manual_hooks_v1.5.patch.patch
             #由于KernelSU Next尚未更新并适配susfs 2.0.0，故回退至susfs 1.5.12
             cd susfs4ksu && git checkout a162e2469d0b472545e5e46457eee171c0975fb0 && cd ..
-            cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./common/
+            #                             50_add_susfs_in_gki-android14-6.1.patch
+            tree -L 3 ./susfs4ksu
+            cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-*.patch ./common/ # ${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./common/
             cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
             cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
             cd ./common
@@ -690,7 +692,7 @@ jobs:
             KSU_TYPENAME="KSU"
           fi
           if [[ ${{ github.event.inputs.lz4kd_enable }} == 'true' ]]; then
-            wget https://raw.githubusercontent.com/cctv18/oppo_oplus_realme_sm8650/refs/heads/main/zram.zip
+            wget https://raw.bgithub.xyz/cctv18/oppo_oplus_realme_sm8650/refs/heads/main/zram.zip
           fi
           if [[ -n "${{ github.event.inputs.kernel_suffix }}" ]]; then
             zip -r ../AnyKernel3_${KSU_TYPENAME}_${{ env.KSUVER }}_${{ env.KERNEL_VERSION }}_A15_${{ github.event.inputs.kernel_suffix }}.zip ./*
