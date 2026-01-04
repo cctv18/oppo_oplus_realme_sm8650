@@ -156,7 +156,7 @@ elif [[ "$KSU_BRANCH" == "n" || "$KSU_BRANCH" == "N" ]]; then
   echo ">>> 拉取 KernelSU Next 并设置版本..."
   curl -LSs "https://raw.githubusercontent.com/pershoot/KernelSU-Next/next-susfs/kernel/setup.sh" | bash -s next-susfs
   cd KernelSU-Next
-  KSU_VERSION=$(expr $(curl -sI "https://api.github.com/repos/pershoot/KernelSU-Next/commits?sha=next&per_page=1" | grep -i "link:" | sed -n 's/.*page=\([0-9]*\)>; rel="last".*/\1/p') "+" 10200)
+  KSU_VERSION=$(expr $(curl -sI "https://api.github.com/repos/pershoot/KernelSU-Next/commits?sha=stable&per_page=1" | grep -i "link:" | sed -n 's/.*page=\([0-9]*\)>; rel="last".*/\1/p') "+" 10200)
   sed -i "s/DKSU_VERSION=11998/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
   #为KernelSU Next添加WildKSU管理器支持
   cd ../common/drivers/kernelsu
@@ -181,10 +181,9 @@ echo ">>> 克隆补丁仓库..."
 cd "$WORKDIR/kernel_workspace"
 echo ">>> 应用 SUSFS&hook 补丁..."
 if [[ "$KSU_BRANCH" == [yY] && "$APPLY_SUSFS" == [yY] ]]; then
-  git clone https://github.com/shirkneko/susfs4ksu.git -b gki-android14-6.1
-  git clone https://github.com/ShirkNeko/SukiSU_patch.git
+  git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
+  wget https://github.com/cctv18/oppo_oplus_realme_sm8650/raw/refs/heads/main/other_patch/69_hide_stuff.patch -O ./common/69_hide_stuff.patch
   cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
-  cp ./SukiSU_patch/69_hide_stuff.patch ./common/
   cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
   cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
   cd ./common
@@ -193,15 +192,14 @@ if [[ "$KSU_BRANCH" == [yY] && "$APPLY_SUSFS" == [yY] ]]; then
   sed -i 's/goto show_pad;/return 0;/g' ./fs/proc/task_mmu.c
   patch -p1 -F 3 < 69_hide_stuff.patch || true
 elif [[ "$KSU_BRANCH" == [nN] && "$APPLY_SUSFS" == [yY] ]]; then
-  git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
+  git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
+  wget https://github.com/cctv18/oppo_oplus_realme_sm8650/raw/refs/heads/main/other_patch/69_hide_stuff.patch -O ./common/69_hide_stuff.patch
+  wget https://github.com/cctv18/oppo_oplus_realme_sm8650/raw/refs/heads/main/other_patch/scope_min_manual_hooks_v1.5.patch -O ./common/scope_min_manual_hooks_v1.5.patch.patch
   #由于KernelSU Next尚未更新并适配susfs 2.0.0，故回退至susfs 1.5.12
   cd susfs4ksu && git checkout a162e2469d0b472545e5e46457eee171c0975fb0 && cd ..
-  git clone https://github.com/WildKernels/kernel_patches.git
   cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
   cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
   cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-  cp ./kernel_patches/next/scope_min_manual_hooks_v1.5.patch ./common/
-  cp ./kernel_patches/69_hide_stuff.patch ./common/
   cd ./common
   patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
   #临时修复task_mmu.c在部分内核版本补丁后找不到show_pad方法的问题
@@ -209,8 +207,8 @@ elif [[ "$KSU_BRANCH" == [nN] && "$APPLY_SUSFS" == [yY] ]]; then
   patch -p1 -N -F 3 < scope_min_manual_hooks_v1.5.patch || true
   patch -p1 -N -F 3 < 69_hide_stuff.patch || true
 elif [[ "$KSU_BRANCH" == [mM] && "$APPLY_SUSFS" == [yY] ]]; then
-  git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
-  git clone https://github.com/ShirkNeko/SukiSU_patch.git
+  git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
+  wget https://github.com/cctv18/oppo_oplus_realme_sm8650/raw/refs/heads/main/other_patch/69_hide_stuff.patch -O ./common/69_hide_stuff.patch
   cp ./susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU/
   # 临时修复：修复susfs补丁日志输出（由于上游KSU把部分Makefile代码移至Kbuild中，而susfs补丁未同步修改，故需修复susfs补丁修补位点）
   PATCH_FILE="./KernelSU/10_enable_susfs_for_ksu.patch"
@@ -232,22 +230,19 @@ elif [[ "$KSU_BRANCH" == [mM] && "$APPLY_SUSFS" == [yY] ]]; then
   cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
   cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
   cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-  cp ./SukiSU_patch/69_hide_stuff.patch ./common/
   cd ./KernelSU
   patch -p1 < 10_enable_susfs_for_ksu.patch || true
   #为MKSU修正susfs 2.0.0补丁
   wget https://github.com/cctv18/oppo_oplus_realme_sm8650/raw/refs/heads/main/other_patch/mksu_supercalls.patch
   patch -p1 < mksu_supercalls.patch || true
-  wget https://github.com/cctv18/oppo_oplus_realme_sm8650/raw/refs/heads/main/other_patch/fix_umount.patch
-  patch -p1 < fix_umount.patch || true
   cd ../common
   patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
   #临时修复task_mmu.c在部分内核版本补丁后找不到show_pad方法的问题
   sed -i 's/goto show_pad;/return 0;/g' ./fs/proc/task_mmu.c
   patch -p1 -N -F 3 < 69_hide_stuff.patch || true
 elif [[ "$KSU_BRANCH" == [kK] && "$APPLY_SUSFS" == [yY] ]]; then
-  git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
-  git clone https://github.com/ShirkNeko/SukiSU_patch.git
+  git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
+  wget https://github.com/cctv18/oppo_oplus_realme_sm8650/raw/refs/heads/main/other_patch/69_hide_stuff.patch -O ./common/69_hide_stuff.patch
   cp ./susfs4ksu/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch ./KernelSU/
   # 临时修复：修复susfs补丁日志输出（由于上游KSU把部分Makefile代码移至Kbuild中，而susfs补丁未同步修改，故需修复susfs补丁修补位点）
   PATCH_FILE="./KernelSU/10_enable_susfs_for_ksu.patch"
@@ -269,11 +264,8 @@ elif [[ "$KSU_BRANCH" == [kK] && "$APPLY_SUSFS" == [yY] ]]; then
   cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
   cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
   cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-  cp ./SukiSU_patch/69_hide_stuff.patch ./common/
   cd ./KernelSU
   patch -p1 < 10_enable_susfs_for_ksu.patch || true
-  wget https://github.com/cctv18/oppo_oplus_realme_sm8650/raw/refs/heads/main/other_patch/fix_umount.patch
-  patch -p1 < fix_umount.patch || true
   cd ../common
   patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
   #临时修复task_mmu.c在部分内核版本补丁后找不到show_pad方法的问题
@@ -287,7 +279,7 @@ cd ../
 # ===== 应用 LZ4 & ZSTD 补丁 =====
 if [[ "$APPLY_LZ4" == "y" || "$APPLY_LZ4" == "Y" ]]; then
   echo ">>> 正在添加lz4 1.10.0 & zstd 1.5.7补丁..."
-  git clone https://github.com/cctv18/oppo_oplus_realme_sm8650.git
+  git clone --depth=1 https://github.com/cctv18/oppo_oplus_realme_sm8650.git
   cp ./oppo_oplus_realme_sm8650/zram_patch/001-lz4.patch ./common/
   cp ./oppo_oplus_realme_sm8650/zram_patch/lz4armv8.S ./common/lib
   cp ./oppo_oplus_realme_sm8650/zram_patch/002-zstd.patch ./common/
@@ -304,7 +296,7 @@ fi
 if [[ "$APPLY_LZ4KD" == "y" || "$APPLY_LZ4KD" == "Y" ]]; then
   echo ">>> 应用 LZ4KD 补丁..."
   if [ ! -d "SukiSU_patch" ]; then
-    git clone https://github.com/ShirkNeko/SukiSU_patch.git
+    git clone --depth=1 https://github.com/ShirkNeko/SukiSU_patch.git
   fi
   cp -r ./SukiSU_patch/other/zram/lz4k/include/linux/* ./common/include/linux/
   cp -r ./SukiSU_patch/other/zram/lz4k/lib/* ./common/lib
@@ -480,7 +472,7 @@ OUT_DIR="$WORKDIR/kernel_workspace/common/out/arch/arm64/boot"
 if [[ "$USE_PATCH_LINUX" == "y" || "$USE_PATCH_LINUX" == "Y" ]]; then
   echo ">>> 使用 patch_linux 工具处理输出..."
   cd "$OUT_DIR"
-  wget https://github.com/SukiSU-Ultra/SukiSU_KernelPatch_patch/releases/latest/download/patch_linux
+  wget https://github.com/SukiSU-Ultra/SukiSU_KernelPatch_patch/releases/download/0.12.2/patch_linux
   chmod +x patch_linux
   ./patch_linux
   rm -f Image

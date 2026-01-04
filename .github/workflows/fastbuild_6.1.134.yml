@@ -1,4 +1,4 @@
-name: 加速版构建 6.1.57 欧加真OKI内核
+name: 加速版构建 6.1.134 (天玑特供)欧加真OKI内核
 
 env:
   TZ: Asia/Shanghai
@@ -49,7 +49,7 @@ on:
           - 'true'
           - 'default'
       better_net:
-        description: '是否开启网络功能拓展配置(用于为ipset及需要iptables等高级网络功能内核支持的程序提供支持)'
+        description: '是否开启网络功能拓展配置(用于为ipset及需要iptables等高级网络功能内核支持的程序提供支持,天玑机型可能导致bug,建议关闭)'
         required: true
         type: boolean
         default: 'false'
@@ -100,10 +100,10 @@ jobs:
           #旧版完整指令：（由于经过验证大部分指令已内置于GitHub Action环境中，故进行精简）
           #sudo apt-get install -y --no-install-recommends curl bison flex make binutils git perl gcc python3 python-is-python3 bc libssl-dev libelf-dev zip unzip ccache
           
-          echo "正在克隆源码仓库..." &&
-          aria2c -s16 -x16 -k1M https://github.com/cctv18/android_kernel_common_oneplus_sm8650/archive/refs/heads/oneplus/sm8650_u_14.0.0_oneplus12.zip -o common.zip && 
+          echo "正在克隆源码仓库..."
+          aria2c -s16 -x16 -k1M https://github.com/cctv18/android_kernel_oneplus_mt6989/archive/refs/heads/oneplus/mt6989_b_16.0.0_ace5_race.zip -o common.zip && 
           unzip -q common.zip && 
-          mv "android_kernel_common_oneplus_sm8650-oneplus-sm8650_u_14.0.0_oneplus12" common &&
+          mv "android_kernel_oneplus_mt6989-oneplus-mt6989_b_16.0.0_ace5_race" common &&
           rm -rf common.zip &
           
           echo "正在克隆llvm-Clang20工具链..." &&
@@ -128,21 +128,21 @@ jobs:
 
       - name: 配置ccache目录
         run: |
-          echo "CCACHE_DIR=$HOME/.ccache_6.1.57" >> $GITHUB_ENV
+          echo "CCACHE_DIR=$HOME/.ccache_6.1.134" >> $GITHUB_ENV
           echo "CCACHE_MAXSIZE=3G" >> $GITHUB_ENV
           echo "当前磁盘空间："
           df -h
-          echo "当前构建内核版本：6.1.57"
+          echo "当前构建内核版本：6.1.134"
 
       - name: 载入当前版本内核的 ccache缓存
         uses: actions/cache@v4
         id: ccache-restore
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-neov3-6.1.57-${{ runner.os }}-main
+          key: ccache-neov3-6.1.134-${{ runner.os }}-main
           restore-keys: |
-            ccache-neov3-6.1.57-${{ runner.os }}-
-            ccache-neov3-6.1.57-
+            ccache-neov3-6.1.134-${{ runner.os }}-
+            ccache-neov3-6.1.134-
       
       - name: 初始化并配置ccache
         run: |
@@ -276,8 +276,6 @@ jobs:
             cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
             cd ./common
             patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
-            #临时修复task_mmu.c在部分内核版本补丁后找不到show_pad方法的问题
-            sed -i 's/goto show_pad;/return 0;/g' ./fs/proc/task_mmu.c
             patch -p1 < 69_hide_stuff.patch || true
           elif [[ ${{ github.event.inputs.ksu_type }} == "ksunext" ]]; then
             echo "正在添加KernelSU Next补丁..."
@@ -291,8 +289,6 @@ jobs:
             cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
             cd ./common
             patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
-            #临时修复task_mmu.c在部分内核版本补丁后找不到show_pad方法的问题
-            sed -i 's/goto show_pad;/return 0;/g' ./fs/proc/task_mmu.c
             patch -p1 -N -F 3 < scope_min_manual_hooks_v1.5.patch || true
             patch -p1 -N -F 3 < 69_hide_stuff.patch || true
             #为KernelSU Next添加WildKSU管理器支持
@@ -331,8 +327,6 @@ jobs:
             patch -p1 < mksu_supercalls.patch || true
             cd ../common
             patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
-            #临时修复task_mmu.c在部分内核版本补丁后找不到show_pad方法的问题
-            sed -i 's/goto show_pad;/return 0;/g' ./fs/proc/task_mmu.c
             patch -p1 -N -F 3 < 69_hide_stuff.patch || true
           else
             echo "正在为原版 KernelSU (tiann/KernelSU)添加补丁..."
@@ -363,8 +357,6 @@ jobs:
             patch -p1 < 10_enable_susfs_for_ksu.patch || true
             cd ../common
             patch -p1 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
-            #临时修复task_mmu.c在部分内核版本补丁后找不到show_pad方法的问题
-            sed -i 's/goto show_pad;/return 0;/g' ./fs/proc/task_mmu.c
             patch -p1 -N -F 3 < 69_hide_stuff.patch || true
           fi
           
@@ -701,9 +693,9 @@ jobs:
             wget https://raw.githubusercontent.com/cctv18/oppo_oplus_realme_sm8650/refs/heads/main/zram.zip
           fi
           if [[ -n "${{ github.event.inputs.kernel_suffix }}" ]]; then
-            zip -r ../AnyKernel3_${KSU_TYPENAME}_${{ env.KSUVER }}_${{ env.KERNEL_VERSION }}_A14_${{ github.event.inputs.kernel_suffix }}.zip ./*
+            zip -r ../AnyKernel3_${KSU_TYPENAME}_${{ env.KSUVER }}_${{ env.KERNEL_VERSION }}_A16_${{ github.event.inputs.kernel_suffix }}.zip ./*
           else
-            zip -r ../AnyKernel3_${KSU_TYPENAME}_${{ env.KSUVER }}_${{ env.KERNEL_VERSION }}_A14_${{ env.KERNEL_NAME }}.zip ./*
+            zip -r ../AnyKernel3_${KSU_TYPENAME}_${{ env.KSUVER }}_${{ env.KERNEL_VERSION }}_A16_${{ env.KERNEL_NAME }}.zip ./*
           fi
 
       - name: 上传 Ccache 调试日志
@@ -737,11 +729,11 @@ jobs:
       - name: 设置环境变量
         run: |
           if [[ -n "${{ github.event.inputs.kernel_suffix }}" ]]; then
-            FULL_VERSION=${{ format('{0}.57-{1}', env.KERNEL_VERSION, github.event.inputs.kernel_suffix) }}
+            FULL_VERSION=${{ format('{0}.134-{1}', env.KERNEL_VERSION, github.event.inputs.kernel_suffix) }}
             echo "FULL_VERSION=$FULL_VERSION" >> $GITHUB_ENV
             export FULL_VERSION=$FULL_VERSION
           else
-            FULL_VERSION=${{ format('{0}.57-{1}', env.KERNEL_VERSION, env.KERNEL_NAME) }}
+            FULL_VERSION=${{ format('{0}.134-{1}', env.KERNEL_VERSION, env.KERNEL_NAME) }}
             echo "FULL_VERSION=$FULL_VERSION" >> $GITHUB_ENV
             export FULL_VERSION=$FULL_VERSION
           fi
@@ -749,7 +741,7 @@ jobs:
           TIME_FORM="$(TZ='Asia/Shanghai' date +'%Y-%m-%d %H:%M:%S')"
           echo "TIME=$TIME" >> $GITHUB_ENV
           echo "TIME_FORM=$TIME_FORM" >> $GITHUB_ENV
-          TAG_HEAD="OPPO+OPlus+Realme-A14-build"
+          TAG_HEAD="OPPO+OPlus+Realme-A16-build"
           echo "TAG_HEAD=$TAG_HEAD" >> $GITHUB_ENV
           if [[ ${{ github.event.inputs.ksu_type }} == "sukisu" ]]; then
             KSU_TYPENAME="SukiSU Ultra"
@@ -769,10 +761,10 @@ jobs:
           tag_name: "${{ env.TAG_HEAD }}-${{ env.TIME }}"
           name: "${{ env.TAG_HEAD }}-${{ env.FULL_VERSION }}"
           body: |
-            ### 📱 欧加真 ${{ env.KSU_TYPENAME }} SM8650 通用内核 | 构建信息
+            ### 📱 欧加真 ${{ env.KSU_TYPENAME }} MT6989 通用内核 | 构建信息
             - 内核版本号: ${{ env.FULL_VERSION }}
             - 编译时间: ${{ env.TIME_FORM }}
-            - 机型：欧加真骁龙8Gen3通用 6.1.57 内核（基于一加12 6.1.57 Android 14 版官方OKI源码）
+            - 机型：欧加真天玑9400e通用 6.1.134 内核（基于一加Ace5竞速板 6.1.134 Android 16 版官方OKI源码）
             - KSU分支：${{ env.KSU_TYPENAME }}
             - susfs支持 (仅对sukisu生效)：${{ github.event.inputs.susfs_enable }}
             - KPM支持 (仅对sukisu生效)：${{ github.event.inputs.kpm_enable }}
