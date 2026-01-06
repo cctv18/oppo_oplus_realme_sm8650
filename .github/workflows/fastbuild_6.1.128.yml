@@ -246,8 +246,8 @@ jobs:
             sed -i "s/KSU_VERSION_TAG_FALLBACK := v0.0.1/KSU_VERSION_TAG_FALLBACK := $KSU_GIT_TAG/g" kernel/Kbuild
             #为KernelSU Next添加WildKSU管理器支持
             cd ../common/drivers/kernelsu
-            wget https://github.com/WildKernels/kernel_patches/raw/refs/heads/main/next/susfs_fix_patches/v1.5.12/fix_apk_sign.c.patch
-            patch -p2 -N -F 3 < fix_apk_sign.c.patch || true
+            wget https://github.com/cctv18/oppo_oplus_realme_sm8650/raw/refs/heads/main/other_patch/apk_sign.patch
+            patch -p2 -N -F 3 < apk_sign.patch || true
           elif [[ ${{ github.event.inputs.ksu_type }} == "mksu" ]]; then
             echo "正在配置 MKSU (5ec1cff/KernelSU)..."
             curl -LSs "https://raw.githubusercontent.com/5ec1cff/KernelSU/refs/heads/main/kernel/setup.sh" | bash -s main
@@ -294,10 +294,6 @@ jobs:
             #临时修复task_mmu.c在部分内核版本补丁后找不到show_pad方法的问题
             sed -i 's/goto show_pad;/return 0;/g' ./fs/proc/task_mmu.c
             patch -p1 -N -F 3 < 69_hide_stuff.patch || true
-            #为KernelSU Next添加WildKSU管理器支持
-            cd ./drivers/kernelsu
-            wget https://github.com/WildKernels/kernel_patches/raw/refs/heads/main/next/susfs_fix_patches/v1.5.12/fix_apk_sign.c.patch
-            patch -p2 -N -F 3 < fix_apk_sign.c.patch || true
           elif [[ ${{ github.event.inputs.ksu_type }} == "mksu" ]]; then
             echo "正在为 MKSU (5ec1cff/KernelSU)添加补丁..."
             git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}
