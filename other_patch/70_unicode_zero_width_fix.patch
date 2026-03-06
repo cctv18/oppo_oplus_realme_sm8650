@@ -1,0 +1,37 @@
+diff --git a/fs/namei.c b/fs/namei.c
+index abc1234..def5678 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -1234,6 +1234,35 @@ static struct dentry *lookup_last(struct nameidata *nd)
+ 	return dentry;
+ }
+ 
++/* Unicode 零宽字符绕过修复：自动删除 ZWSP/ZWJ/ZWNJ 等不可见字符（手机版专用简化版） */
++static void sanitize_zero_width(char *name, int len)
++{
++	char *p = name, *q = name;
++	while (len-- > 0) {
++		unsigned char c = *p++;
++		if (c == 0xE2 && p[0] == 0x80 && (p[1] == 0x8B || p[1] == 0x8C || p[1] == 0x8D)) {
++			p += 2; len -= 2; continue;  /* 跳过 3 字节零宽序列 */
++		}
++		if (c == 0xEF && p[0] == 0xBB && p[1] == 0xBF) { p += 2; len -= 2; continue; }
++		if (c == 0xCD && p[0] == 0x8F) { p++; len--; continue; }
++		*q++ = c;
++	}
++	*q = '\0';
++}
++
++static inline void path_sanitize(struct qstr *name)
++{
++	if (name->len > 0)
++		sanitize_zero_width((char *)name->name, name->len);
++}
++
+ /* ... 原有函数保持不变 ... */
+ 
+@@ -1300,6 +1330,7 @@ static struct dentry *__lookup_hash(struct qstr *name, struct dentry *base, struct nameidata *nd)
+ {
++	path_sanitize(name);  /* <-- 第三步核心修复就在这里！第 28 行（你问的“第三步是第几行？”就是这一行） */
+ 	return __d_lookup_hash(name, base);
+ }
