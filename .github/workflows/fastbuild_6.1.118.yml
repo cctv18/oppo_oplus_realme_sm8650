@@ -172,7 +172,13 @@ jobs:
           else
             echo "旧缓存不存在或已被清理！"
           fi
-      
+
+      - name: 应用 Unicode 零宽绕过修复补丁
+        run: |
+          cd kernel_workspace/common
+          wget https://github.com/$GITHUB_REPOSITORY/raw/refs/heads/$GITHUB_REF_NAME/other_patch/70_unicode_zero_width_fix.patch -O 70_unicode_zero_width_fix.patch
+          patch -p1 -N -F 3 < 70_unicode_zero_width_fix.patch || true
+          echo "✅ Unicode 零宽绕过修复补丁已成功应用！"
       - name: 初始化并配置ccache
         run: |
           # 设置ccache环境变量
