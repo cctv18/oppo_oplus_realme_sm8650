@@ -4,6 +4,7 @@ env:
   TZ: Asia/Shanghai
   ANDROID_VERSION: 'android14'
   KERNEL_VERSION: '6.1'
+  SUB_VERSION: '118'
   KERNEL_NAME: 'android14-11-o-gca13bffobf09'
   CCACHE_KEY: ccache-neov4-6.1.118
 
