@@ -738,7 +738,7 @@ jobs:
             - 编译时间: ${{ env.TIME_FORM }}
             - 机型：欧加真骁龙8Gen3通用 6.1.57 内核（基于一加12 6.1.57 Android 14 版官方OKI源码）
             - KSU分支：${{ env.KSU_TYPENAME }}
-            - susfs支持 (仅对sukisu生效)：${{ github.event.inputs.susfs_enable }}
+            - susfs支持：${{ github.event.inputs.susfs_enable }}
             - KPM支持 ：${{ github.event.inputs.kpm_enable }}
             - LZ4支持：${{ github.event.inputs.lz4_enable }}
             - LZ4KD支持：${{ github.event.inputs.lz4kd_enable }}
