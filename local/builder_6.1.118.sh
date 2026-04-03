@@ -97,7 +97,7 @@ echo ">>> 初始化仓库..."
 rm -rf kernel_workspace
 mkdir kernel_workspace
 cd kernel_workspace
-git clone --depth=1 https://github.com/cctv18/android_kernel_common_oneplus_sm8650 -b oneplus/sm8650_v_15.0.0_oneplus12_6.1.118 common
+git clone --depth=1 https://github.com/cctv18/android_kernel_common_oneplus_sm8650 -b oneplus/sm8650_b_16.0.0_oneplus12 common
 echo ">>> 初始化仓库完成"
 
 # ===== 清除 abi 文件、去除 -dirty 后缀 =====
