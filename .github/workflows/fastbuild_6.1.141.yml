@@ -1,5 +1,9 @@
 name: 6.1.141 欧加真OKI内核快速构建
 
+on:
+  workflow_dispatch:  # 👈 这行必须有
+  # 下面可以同时有 push、pull_request 等
+
 env:
   TZ: Asia/Shanghai
   ANDROID_VERSION: 'android14'
