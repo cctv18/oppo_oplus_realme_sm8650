@@ -141,7 +141,7 @@ jobs:
           echo "当前构建内核版本：6.1.128"
 
       - name: 载入当前版本内核的 ccache缓存
-        uses: actions/cache@v4
+        uses: actions/cache@v4.1.2
         id: ccache-restore
         with:
           path: ${{ env.CCACHE_DIR }}
