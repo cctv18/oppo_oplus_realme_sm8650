@@ -33,6 +33,8 @@ read -p "是否启用Re-Kernel？(y/n，默认：n): " APPLY_REKERNEL
 APPLY_REKERNEL=${APPLY_REKERNEL:-n}
 read -p "是否启用内核级基带保护？(y/n，默认：y): " APPLY_BBG
 APPLY_BBG=${APPLY_BBG:-y}
+read -p "是否应用 CVE-2026-43499 rtmutex 修复补丁？(y/n，默认：y): " APPLY_CVE_2026_43499
+APPLY_CVE_2026_43499=${APPLY_CVE_2026_43499:-y}
 
 if [[ "$KSU_BRANCH" == "y" || "$KSU_BRANCH" == "Y" ]]; then
   KSU_TYPE="SukiSU Ultra"
@@ -61,6 +63,7 @@ echo "应用 Droidspaces 容器支持: $APPLY_DROIDSPACES"
 echo "启用三星SSG IO调度器: $APPLY_SSG"
 echo "启用Re-Kernel: $APPLY_REKERNEL"
 echo "启用内核级基带保护: $APPLY_BBG"
+echo "应用 CVE-2026-43499 修复补丁: $APPLY_CVE_2026_43499"
 echo "===================="
 echo
 
@@ -94,6 +97,22 @@ mkdir kernel_workspace
 cd kernel_workspace
 git clone --depth=1 https://github.com/cctv18/android_kernel_oneplus_mt6897 -b oneplus/mt6897_v_15.0.0_oneplus_pad common
 echo ">>> 初始化仓库完成"
+
+# ===== 应用 CVE-2026-43499 修复补丁 =====
+if [[ "$APPLY_CVE_2026_43499" == [yY] ]]; then
+  echo ">>> 应用 CVE-2026-43499 rtmutex 修复补丁..."
+  cd common
+  if [[ ! -f include/linux/cleanup.h ]]; then
+    echo ">>> 补齐 6.1 legacy cleanup/lock guard helper..."
+    patch -p1 -F 3 < "$WORKDIR/../security_patch/cve-2026-43499-guards-6.1-legacy.patch"
+  fi
+  if ! grep -q 'DEFINE_LOCK_GUARD_1(raw_spinlock' include/linux/spinlock.h; then
+    echo "缺少 raw_spinlock guard helper，无法应用 CVE-2026-43499 修复"
+    exit 1
+  fi
+  patch -p1 -F 3 < "$WORKDIR/../security_patch/cve-2026-43499-rtmutex-6.1.patch"
+  cd ..
+fi
 
 # ===== 清除 abi 文件、去除 -dirty 后缀 =====
 echo ">>> 正在清除 ABI 文件及去除 dirty 后缀..."
