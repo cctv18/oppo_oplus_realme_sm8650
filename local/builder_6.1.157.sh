@@ -100,7 +100,8 @@ wget -q https://github.com/cctv18/android_kernel_common_oneplus_sm8650/commit/1c
 wget -q https://github.com/cctv18/android_kernel_common_oneplus_sm8650/commit/8cd9786cbcc5.patch && patch -p1 -F 3 < 8cd9786cbcc5.patch && rm -f 8cd9786cbcc5.patch
 wget -q https://github.com/cctv18/android_kernel_common_oneplus_sm8650/commit/a7a67b52a514.patch && patch -p1 -F 3 < a7a67b52a514.patch && rm -f a7a67b52a514.patch
 wget -q https://github.com/cctv18/android_kernel_common_oneplus_sm8650/commit/81bd0078c430.patch && patch -p1 -F 3 < 81bd0078c430.patch && rm -f 81bd0078c430.patch
-wget -q https://github.com/cctv18/android_kernel_common_oneplus_sm8650/commit/743ae3d10e8c.patch && patch -p1 -F 3 < 743ae3d10e8c.patch && rm -f 743ae3d10e8c.patch
+# 移除 block/blk-mq.c 中多余导出的 test_task_ux 符号，防止与 vendor_boot 首阶段模块 oplus_bsp_sched_assist.ko 产生重复符号/CRC 冲突导致开机无限重启 (OnePlusOSS/android_kernel_common_oneplus_sm8650#42)
+sed -i '/EXPORT_SYMBOL_GPL(test_task_ux);/d' block/blk-mq.c
 cd ..
 echo ">>> 初始化仓库完成"
 
