@@ -826,7 +826,7 @@ jobs:
           echo "TAG_HEAD=$TAG_HEAD" >> $GITHUB_ENV
           if [[ ${{ github.event.inputs.ksu_type }} == "sukisu" ]]; then
             KSU_TYPENAME="SukiSU Ultra"
-          elif [[ ${{ github.event.inputs.ksu_type }} == "bakisu" || ${{ github.event.inputs.ksu_type }} == "bakasu" || ${{ github.event.inputs.ksu_type }} == "bakasu-dev" ]]; then
+          elif [[ ${{ github.event.inputs.ksu_type }} == "bakisu" || ${{ github.event.inputs.ksu_type }} == "bakasu" || ${{ github.event.inputs.ksu_type }} == "bakasu-dev" || ${{ github.event.inputs.ksu_type }} == "bakasu-main-dev" ]]; then
             KSU_TYPENAME="BakaSU"
           elif [[ ${{ github.event.inputs.ksu_type }} == "bakasu-sync-up" ]]; then
             KSU_TYPENAME="BakaSU (sync-up)"
