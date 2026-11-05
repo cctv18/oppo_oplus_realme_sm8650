@@ -12,13 +12,14 @@ on:
   workflow_dispatch:
     inputs:
       ksu_type:
-        description: 'KernelSU分支(BakaSU(main/dev)/SukiSU Ultra/KernelSU Next/KSU(原版)/无内置KSU,默认BakaSU)'
+        description: 'KernelSU分支(BakaSU(main/dev/sync-up)/SukiSU Ultra/KernelSU Next/KSU(原版)/无内置KSU,默认BakaSU)'
         required: true
         type: choice
         default: 'bakasu'
         options:
           - 'bakasu'
           - 'bakasu-dev'
+          - 'bakasu-sync-up'
           - 'sukisu'
           - 'ksunext'
           - 'ksu'
@@ -271,7 +272,7 @@ jobs:
           # 进入内核工作目录
           cd kernel_workspace
           if [[ ${{ github.event.inputs.ksu_type }} == "sukisu" || ${{ github.event.inputs.ksu_type }} == "bakasu" || ${{ github.event.inputs.ksu_type }} == "bakasu-dev" ]]; then
-            echo "正在配置BakaSU（由于SukiSU长期未维护无法正常编译，且BakaSU兼容sukisu管理器，故SukiSU源码仓库已重定向为bakasu）..."
+            echo "正在配置BakaSU (main分支，由于SukiSU长期未维护无法正常编译，且BakaSU兼容sukisu管理器，故SukiSU源码仓库已重定向为bakasu)..."
             curl -LSs "https://raw.githubusercontent.com/Baka-SU/BakaSU/refs/heads/main/kernel/setup.sh" | bash -s main
             echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%@cctv18"' >> ./common/arch/arm64/configs/gki_defconfig
             cd ./KernelSU
@@ -282,6 +283,21 @@ jobs:
             sed -i 's/-dirty//g' kernel/Kbuild
             # 生成自定义版本号（基于提交计数）, 失败时使用 114514
             KSU_VERSION=$(expr $(git rev-list --count main) + 30700 2>/dev/null || echo 114514)
+            # 存储版本号到 GitHub 环境变量
+            echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+            echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
+          elif [[ ${{ github.event.inputs.ksu_type }} == "bakasu-sync-up" ]]; then
+            echo "正在配置BakaSU (sync-up分支)..."
+            curl -LSs "https://raw.githubusercontent.com/Baka-SU/BakaSU/refs/heads/sync-up/kernel/setup.sh" | bash -s sync-up
+            echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%@cctv18"' >> ./common/arch/arm64/configs/gki_defconfig
+            cd ./KernelSU
+            # 补充 sync-up 分支 Kconfig 中缺失的 KSU_SUSFS_PRIORITY_UID_FILTER 配置项定义
+            if ! grep -q "KSU_SUSFS_PRIORITY_UID_FILTER" kernel/Kconfig; then
+              sed -i '/config KSU_SUSFS_SUS_MAP/i config KSU_SUSFS_PRIORITY_UID_FILTER\n    bool "Enable priority uid filter"\n    depends on KSU_SUSFS\n    default y\n' kernel/Kconfig
+            fi
+            sed -i 's/-dirty//g' kernel/Kbuild
+            # 生成自定义版本号（基于提交计数）, 失败时使用 114514
+            KSU_VERSION=$(expr $(git rev-list --count HEAD) + 30700 2>/dev/null || echo 114514)
             # 存储版本号到 GitHub 环境变量
             echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
             echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
@@ -318,16 +334,24 @@ jobs:
           cd kernel_workspace
           if [[ ${{ github.event.inputs.ksu_type }} != "none" ]]; then
             echo "正在添加susfs补丁..."
-            git clone --depth=1 https://github.com/cctv18/susfs4oki.git susfs4ksu -b oki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}
+            if [[ ${{ github.event.inputs.ksu_type }} == "bakasu-sync-up" ]]; then
+              git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git susfs4ksu -b gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}
+            else
+              git clone --depth=1 https://github.com/cctv18/susfs4oki.git susfs4ksu -b oki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}
+            fi
             wget https://github.com/$GITHUB_REPOSITORY/raw/refs/heads/$GITHUB_REF_NAME/other_patch/69_hide_stuff.patch -O ./common/69_hide_stuff.patch
             cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./common/
             cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
             cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
             cd ./common
-            # 6.1.157 在 fs/namespace.c 的 #include "internal.h" 后新增了 #include <trace/hooks/blk.h>，需先临时移除以确保 SUSFS Hunk #1 完整打入，再恢复该头文件
-            sed -i '/#include <trace\/hooks\/blk.h>/d' fs/namespace.c
-            patch -p1 -F 3 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
-            sed -i '/#include "internal.h"/a #include <trace/hooks/blk.h>' fs/namespace.c
+            if [[ ${{ github.event.inputs.ksu_type }} != "bakasu-sync-up" ]]; then
+              # 6.1.157 在 fs/namespace.c 的 #include "internal.h" 后新增了 #include <trace/hooks/blk.h>，cctv18/susfs4oki 需先临时移除以确保 SUSFS Hunk #1 完整打入，再恢复该头文件
+              sed -i '/#include <trace\/hooks\/blk.h>/d' fs/namespace.c
+              patch -p1 -F 3 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
+              sed -i '/#include "internal.h"/a #include <trace/hooks/blk.h>' fs/namespace.c
+            else
+              patch -p1 -F 3 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
+            fi
             patch -p1 -N -F 3 < 69_hide_stuff.patch || true
             cd ..
           else
@@ -387,6 +411,9 @@ jobs:
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_SUS_MAP=y" >> ./common/arch/arm64/configs/gki_defconfig
+          if [[ ${{ github.event.inputs.ksu_type }} == "bakasu-sync-up" ]]; then
+            echo "CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER=y" >> ./common/arch/arm64/configs/gki_defconfig
+          fi
           
       - name: 添加 KSU & 其他配置项
         run: |
@@ -671,7 +698,7 @@ jobs:
           fi
           if [[ ${{ github.event.inputs.ksu_type }} == "sukisu" ]]; then
             KSU_TYPENAME="SukiSU"
-          elif [[ ${{ github.event.inputs.ksu_type }} == "bakasu" || ${{ github.event.inputs.ksu_type }} == "bakasu-dev" ]]; then
+          elif [[ ${{ github.event.inputs.ksu_type }} == "bakasu" || ${{ github.event.inputs.ksu_type }} == "bakasu-dev" || ${{ github.event.inputs.ksu_type }} == "bakasu-sync-up" ]]; then
             KSU_TYPENAME="BakaSU"
           elif [[ ${{ github.event.inputs.ksu_type }} == "ksunext" ]]; then
             KSU_TYPENAME="KSUNext"
@@ -773,6 +800,8 @@ jobs:
             KSU_TYPENAME="SukiSU Ultra"
           elif [[ ${{ github.event.inputs.ksu_type }} == "bakisu" || ${{ github.event.inputs.ksu_type }} == "bakasu" || ${{ github.event.inputs.ksu_type }} == "bakasu-dev" ]]; then
             KSU_TYPENAME="BakaSU"
+          elif [[ ${{ github.event.inputs.ksu_type }} == "bakasu-sync-up" ]]; then
+            KSU_TYPENAME="BakaSU (sync-up)"
           elif [[ ${{ github.event.inputs.ksu_type }} == "ksunext" ]]; then
             KSU_TYPENAME="KernelSU Next"
           elif [[ ${{ github.event.inputs.ksu_type }} == "ksu" ]]; then
