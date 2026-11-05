@@ -12,12 +12,13 @@ on:
   workflow_dispatch:
     inputs:
       ksu_type:
-        description: 'KernelSU分支(BakaSU/SukiSU Ultra/KernelSU Next/KSU(原版)/无内置KSU,默认BakaSU)'
+        description: 'KernelSU分支(BakaSU(main/dev)/SukiSU Ultra/KernelSU Next/KSU(原版)/无内置KSU,默认BakaSU)'
         required: true
         type: choice
         default: 'bakasu'
         options:
           - 'bakasu'
+          - 'bakasu-dev'
           - 'sukisu'
           - 'ksunext'
           - 'ksu'
@@ -269,11 +270,16 @@ jobs:
         run: |
           # 进入内核工作目录
           cd kernel_workspace
-          if [[ ${{ github.event.inputs.ksu_type }} == "sukisu" || ${{ github.event.inputs.ksu_type }} == "bakasu" ]]; then
+          if [[ ${{ github.event.inputs.ksu_type }} == "sukisu" || ${{ github.event.inputs.ksu_type }} == "bakasu" || ${{ github.event.inputs.ksu_type }} == "bakasu-dev" ]]; then
             echo "正在配置BakaSU（由于SukiSU长期未维护无法正常编译，且BakaSU兼容sukisu管理器，故SukiSU源码仓库已重定向为bakasu）..."
             curl -LSs "https://raw.githubusercontent.com/Baka-SU/BakaSU/refs/heads/main/kernel/setup.sh" | bash -s main
             echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%@cctv18"' >> ./common/arch/arm64/configs/gki_defconfig
             cd ./KernelSU
+            # 修复 BakaSU 上游 commit fa12ffde8244 误删 <6.6 SUSFS 所需的 fake_state 定义与初始化（解决链接时 undefined symbol: fake_state 报错）
+            sed -i '/__maybe_static struct page \*fake_status = NULL;/a #if defined(KSU_COMPAT_HAS_SUSFS_FEATURE_SELINUX_HIDE) \&\& LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)\nstruct selinux_state fake_state;\n#endif' kernel/feature/selinux_hide.c
+            sed -i '/no backup sepolicy available/{n;n;a #if defined(KSU_COMPAT_HAS_SUSFS_FEATURE_SELINUX_HIDE) \&\& LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)\n    fake_state.initialized = true;\n    fake_state.policy = backup_sepolicy;\n#endif
+            }' kernel/feature/selinux_hide.c
+            sed -i 's/-dirty//g' kernel/Kbuild
             # 生成自定义版本号（基于提交计数）, 失败时使用 114514
             KSU_VERSION=$(expr $(git rev-list --count main) + 30700 2>/dev/null || echo 114514)
             # 存储版本号到 GitHub 环境变量
@@ -665,7 +671,7 @@ jobs:
           fi
           if [[ ${{ github.event.inputs.ksu_type }} == "sukisu" ]]; then
             KSU_TYPENAME="SukiSU"
-          elif [[ ${{ github.event.inputs.ksu_type }} == "bakasu" ]]; then
+          elif [[ ${{ github.event.inputs.ksu_type }} == "bakasu" || ${{ github.event.inputs.ksu_type }} == "bakasu-dev" ]]; then
             KSU_TYPENAME="BakaSU"
           elif [[ ${{ github.event.inputs.ksu_type }} == "ksunext" ]]; then
             KSU_TYPENAME="KSUNext"
@@ -765,7 +771,7 @@ jobs:
           echo "TAG_HEAD=$TAG_HEAD" >> $GITHUB_ENV
           if [[ ${{ github.event.inputs.ksu_type }} == "sukisu" ]]; then
             KSU_TYPENAME="SukiSU Ultra"
-          elif [[ ${{ github.event.inputs.ksu_type }} == "bakisu" || ${{ github.event.inputs.ksu_type }} == "bakasu" ]]; then
+          elif [[ ${{ github.event.inputs.ksu_type }} == "bakisu" || ${{ github.event.inputs.ksu_type }} == "bakasu" || ${{ github.event.inputs.ksu_type }} == "bakasu-dev" ]]; then
             KSU_TYPENAME="BakaSU"
           elif [[ ${{ github.event.inputs.ksu_type }} == "ksunext" ]]; then
             KSU_TYPENAME="KernelSU Next"
