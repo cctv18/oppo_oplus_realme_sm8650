@@ -181,7 +181,7 @@ if [[ "$APPLY_SUSFS" == [yY] ]]; then
   else
     git clone --depth=1 https://github.com/cctv18/susfs4oki.git susfs4ksu -b oki-android14-6.1
   fi
-  wget https://github.com/cctv18/oppo_oplus_realme_sm8650/raw/refs/heads/main/other_patch/69_hide_stuff.patch -O ./common/69_hide_stuff.patch
+  wget https://github.com/RamuSriram/oppo_oplus_realme_sm8650/raw/refs/heads/main/other_patch/69_hide_stuff.patch -O ./common/69_hide_stuff.patch
   cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
   cp ./susfs4ksu/kernel_patches/fs/* ./common/fs/
   cp ./susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
@@ -194,6 +194,7 @@ if [[ "$APPLY_SUSFS" == [yY] ]]; then
     patch -p1 -F 3 < 50_add_susfs_in_gki-android14-6.1.patch || true
   fi
   patch -p1 -N -F 3 < 69_hide_stuff.patch || true
+  grep -q "jdwp-control" net/unix/af_unix.c || { echo "错误：af_unix.c 隐藏补丁未生效！"; exit 1; }
 else
   echo ">>> 未开启susfs，跳过susfs补丁配置..."
 fi

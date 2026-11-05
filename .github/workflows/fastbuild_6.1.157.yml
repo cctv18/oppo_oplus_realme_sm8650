@@ -368,6 +368,7 @@ jobs:
               patch -p1 -F 3 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
             fi
             patch -p1 -N -F 3 < 69_hide_stuff.patch || true
+            grep -q "jdwp-control" net/unix/af_unix.c || { echo "错误：af_unix.c 隐藏补丁未生效！"; exit 1; }
             cd ..
           else
             echo "已选择无内置KernelSU模式，跳过susfs配置..."

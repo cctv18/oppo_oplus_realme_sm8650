@@ -90,3 +90,61 @@
  
  out_mmput:
  
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -115,6 +115,9 @@
+ #include <linux/freezer.h>
+ #include <linux/file.h>
+ #include <linux/btf_ids.h>
++#ifdef CONFIG_KSU_SUSFS
++#include <linux/susfs_def.h>
++#endif
+ 
+ static atomic_long_t unix_nr_socks;
+ static struct hlist_head bsd_socket_buckets[UNIX_HASH_SIZE / 2];
+@@ -1089,6 +1092,13 @@
+ 	struct dentry *dentry;
+ 	struct sock *sk;
+ 
++#ifdef CONFIG_KSU_SUSFS
++	if (susfs_is_current_proc_umounted_app() &&
++	    addr_len >= offsetof(struct sockaddr_un, sun_path) + 1 + 12 &&
++	    !memcmp(sunaddr->sun_path + 1, "jdwp-control", 12))
++		return ERR_PTR(-ECONNREFUSED);
++#endif
++
+ 	sk = unix_find_socket_byname(net, sunaddr, addr_len, hash);
+ 	if (!sk)
+ 		return ERR_PTR(-ECONNREFUSED);
+@@ -1217,6 +1227,11 @@
+ 		err = vfs_mknod(ns, d_inode(parent.dentry), dentry, mode, 0);
+ 	if (err)
+ 		goto out_path;
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	if (!strcmp(addr->name->sun_path, "/dev/socket/adbd") &&
++	    d_backing_inode(dentry) && d_backing_inode(dentry)->i_mapping)
++		set_bit(AS_FLAGS_SUS_PATH, &d_backing_inode(dentry)->i_mapping->flags);
++#endif
+ 	err = mutex_lock_interruptible(&u->bindlock);
+ 	if (err)
+ 		goto out_unlink;
+@@ -3408,6 +3423,19 @@
+ 		struct unix_sock *u = unix_sk(s);
+ 		unix_state_lock(s);
+ 
++#ifdef CONFIG_KSU_SUSFS
++		if (susfs_is_current_proc_umounted_app() && u->addr) {
++			int path_len = u->addr->len - offsetof(struct sockaddr_un, sun_path);
++			if ((path_len >= 13 && !u->addr->name->sun_path[0] &&
++			     !memcmp(u->addr->name->sun_path + 1, "jdwp-control", 12)) ||
++			    (path_len > 0 && u->addr->name->sun_path[0] &&
++			     !strcmp(u->addr->name->sun_path, "/dev/socket/adbd"))) {
++				unix_state_unlock(s);
++				return 0;
++			}
++		}
++#endif
++
+ 		seq_printf(seq, "%pK: %08X %08X %08X %04X %02X %5lu",
+ 			s,
+ 			refcount_read(&s->sk_refcnt),
