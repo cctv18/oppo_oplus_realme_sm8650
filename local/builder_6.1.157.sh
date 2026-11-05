@@ -95,13 +95,20 @@ mkdir kernel_workspace
 cd kernel_workspace
 git clone --depth=1 https://github.com/OnePlusOSS/android_kernel_common_oneplus_sm8635 -b oneplus/sm8635_b_16.0.0_nord_5 common
 cd common
+# 移除 block/blk-mq.c 中多余导出的 test_task_ux 符号，防止与 vendor_boot 首阶段模块 oplus_bsp_sched_assist.ko 产生重复符号/CRC 冲突导致开机无限重启 (OnePlusOSS/android_kernel_common_oneplus_sm8650#42)
+sed -i '/EXPORT_SYMBOL_GPL(test_task_ux);/d' block/blk-mq.c
+if grep -q "EXPORT_SYMBOL_GPL(test_task_ux)" block/blk-mq.c; then
+  echo "错误：未能移除 block/blk-mq.c 中的 EXPORT_SYMBOL_GPL(test_task_ux)！"
+  exit 1
+fi
 rm -rf drivers/soc/oplus/oplus_resctrl drivers/soc/oplus/storage kernel/locking/locking_main.h kernel/locking/oplus_locking.c kernel/locking/sa_common_struct.h kernel/oplus_cpu
-wget -q https://github.com/cctv18/android_kernel_common_oneplus_sm8650/commit/1c9edfd50d2a.patch && patch -p1 -f -s < 1c9edfd50d2a.patch && rm -f 1c9edfd50d2a.patch
+wget -q https://github.com/cctv18/android_kernel_common_oneplus_sm8650/commit/1c9edfd50d2a.patch
+python3 -c 'import re; p=open("1c9edfd50d2a.patch",encoding="utf-8").read(); p=re.sub(r"diff --git a/[^\n]+\ndeleted file mode 120000\n.*?(?=\ndiff --git |\Z)","",p,flags=re.S); open("1c9edfd50d2a.patch","w",encoding="utf-8").write(p)'
+git apply -p1 1c9edfd50d2a.patch
+rm -f 1c9edfd50d2a.patch
 wget -q https://github.com/cctv18/android_kernel_common_oneplus_sm8650/commit/8cd9786cbcc5.patch && patch -p1 -F 3 < 8cd9786cbcc5.patch && rm -f 8cd9786cbcc5.patch
 wget -q https://github.com/cctv18/android_kernel_common_oneplus_sm8650/commit/a7a67b52a514.patch && patch -p1 -F 3 < a7a67b52a514.patch && rm -f a7a67b52a514.patch
 wget -q https://github.com/cctv18/android_kernel_common_oneplus_sm8650/commit/81bd0078c430.patch && patch -p1 -F 3 < 81bd0078c430.patch && rm -f 81bd0078c430.patch
-# 移除 block/blk-mq.c 中多余导出的 test_task_ux 符号，防止与 vendor_boot 首阶段模块 oplus_bsp_sched_assist.ko 产生重复符号/CRC 冲突导致开机无限重启 (OnePlusOSS/android_kernel_common_oneplus_sm8650#42)
-sed -i '/EXPORT_SYMBOL_GPL(test_task_ux);/d' block/blk-mq.c
 cd ..
 echo ">>> 初始化仓库完成"
 
@@ -258,7 +265,9 @@ fi
 echo "CONFIG_TMPFS_XATTR=y" >> "$DEFCONFIG_FILE"
 echo "CONFIG_TMPFS_POSIX_ACL=y" >> "$DEFCONFIG_FILE"
 echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> "$DEFCONFIG_FILE"
-echo "CONFIG_HEADERS_INSTALL=n" >> "$DEFCONFIG_FILE"
+if [[ "$KSU_BRANCH" != [sS] ]]; then
+  echo "CONFIG_HEADERS_INSTALL=n" >> "$DEFCONFIG_FILE"
+fi
 
 # 应用 CVE_2026_43499 修复补丁 (6.1.157 已内置，使用 -N || true)
 cd common
@@ -384,8 +393,16 @@ sed -i 's/check_defconfig//' ./common/build.config.gki
 
 echo ">>> 开始编译内核..."
 cd common
-make -j$(nproc --all) LLVM=-20 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnuabeihf- CC=clang LD=ld.lld HOSTCC=clang HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error gki_defconfig all
-echo ">>> 内核编译成功！"
+make -j$(nproc --all) LLVM=-20 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnuabeihf- CC=clang LD=ld.lld HOSTCC=clang HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error gki_defconfig
+if [[ "$KSU_BRANCH" == [sS] ]]; then
+  make -j$(nproc --all) LLVM=-20 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnuabeihf- CC=clang LD=ld.lld HOSTCC=clang HOSTLD=ld.lld O=out INSTALL_HDR_PATH="$(pwd)/out/usr" headers_install
+fi
+make -j$(nproc --all) LLVM=-20 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnuabeihf- CC=clang LD=ld.lld HOSTCC=clang HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error all
+if python3 -c 'd=open("out/arch/arm64/boot/Image","rb").read(); exit(0 if b"blk_mq_alloc_request\x00test_task_ux\x00" in d else 1)'; then
+  echo "严重错误：Image 的 __ksymtab_strings 中仍然导出了 test_task_ux 符号！终止构建以防开机无限重启！"
+  exit 1
+fi
+echo ">>> 内核编译成功并通过符号校验！"
 
 OUT_DIR="$WORKDIR/kernel_workspace/common/out/arch/arm64/boot"
 if [[ "$USE_PATCH_LINUX" == [yY] ]]; then

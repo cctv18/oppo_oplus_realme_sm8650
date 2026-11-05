@@ -6,19 +6,18 @@ env:
   KERNEL_VERSION: '6.1'
   SUB_VERSION: '157'
   KERNEL_NAME: 'android14-11-o-g00d81d97d759'
-  CCACHE_KEY: ccache-ecsv4-6.1.157
+  CCACHE_KEY: ccache-ecsv4-6.1.157-v2
 
 on:
   workflow_dispatch:
     inputs:
       ksu_type:
-        description: 'KernelSU分支(BakaSU(main/dev/sync-up)/SukiSU Ultra/KernelSU Next/KSU(原版)/无内置KSU,默认BakaSU)'
+        description: 'KernelSU分支(BakaSU(main/dev或sync-up)/SukiSU Ultra/KernelSU Next/KSU(原版)/无内置KSU,默认BakaSU main/dev)'
         required: true
         type: choice
-        default: 'bakasu'
+        default: 'bakasu-main-dev'
         options:
-          - 'bakasu'
-          - 'bakasu-dev'
+          - 'bakasu-main-dev'
           - 'bakasu-sync-up'
           - 'sukisu'
           - 'ksunext'
@@ -131,29 +130,11 @@ jobs:
           sudo chmod +x /usr/bin/ccache &&
           rm -f ./ccache &
           
-          echo "正在克隆 6.1.157 源码仓库并应用一加 OKI 树补丁..."
-          (
-            aria2c -s16 -x16 -k1M https://github.com/OnePlusOSS/android_kernel_common_oneplus_sm8635/archive/refs/heads/oneplus/sm8635_b_16.0.0_nord_5.zip -o common.zip &&
-            unzip -q common.zip &&
-            mv "android_kernel_common_oneplus_sm8635-oneplus-sm8635_b_16.0.0_nord_5" common &&
-            rm -rf common.zip &&
-            cd common &&
-            rm -rf drivers/soc/oplus/oplus_resctrl drivers/soc/oplus/storage kernel/locking/locking_main.h kernel/locking/oplus_locking.c kernel/locking/sa_common_struct.h kernel/oplus_cpu &&
-            wget -q https://github.com/cctv18/android_kernel_common_oneplus_sm8650/commit/1c9edfd50d2a.patch &&
-            patch -p1 -f -s < 1c9edfd50d2a.patch &&
-            rm -f 1c9edfd50d2a.patch &&
-            wget -q https://github.com/cctv18/android_kernel_common_oneplus_sm8650/commit/8cd9786cbcc5.patch &&
-            patch -p1 -F 3 < 8cd9786cbcc5.patch &&
-            rm -f 8cd9786cbcc5.patch &&
-            wget -q https://github.com/cctv18/android_kernel_common_oneplus_sm8650/commit/a7a67b52a514.patch &&
-            patch -p1 -F 3 < a7a67b52a514.patch &&
-            rm -f a7a67b52a514.patch &&
-            wget -q https://github.com/cctv18/android_kernel_common_oneplus_sm8650/commit/81bd0078c430.patch &&
-            patch -p1 -F 3 < 81bd0078c430.patch &&
-            rm -f 81bd0078c430.patch &&
-            # 移除 block/blk-mq.c 中多余导出的 test_task_ux 符号，防止与 vendor_boot 首阶段模块 oplus_bsp_sched_assist.ko 产生重复符号/CRC 冲突导致开机无限重启 (OnePlusOSS/android_kernel_common_oneplus_sm8650#42)
-            sed -i '/EXPORT_SYMBOL_GPL(test_task_ux);/d' block/blk-mq.c
-          ) &
+          echo "正在下载 6.1.157 源码仓库..." &&
+          aria2c -s16 -x16 -k1M https://github.com/OnePlusOSS/android_kernel_common_oneplus_sm8635/archive/refs/heads/oneplus/sm8635_b_16.0.0_nord_5.zip -o common.zip &&
+          unzip -q common.zip &&
+          mv "android_kernel_common_oneplus_sm8635-oneplus-sm8635_b_16.0.0_nord_5" common &&
+          rm -rf common.zip &
           
           echo "正在克隆llvm-Clang20工具链..." &&
           mkdir -p clang20 &&
@@ -167,6 +148,30 @@ jobs:
           rm -rf build-tools.zip &
           
           wait
+          echo "所有源码及llvm-Clang20工具链下载解压完成，正在前台应用一加 OKI 树补丁并校验..."
+          cd common
+          # 1. 移除 block/blk-mq.c 中多余导出的 test_task_ux 符号，防止与 vendor_boot 首阶段模块 oplus_bsp_sched_assist.ko 产生重复符号/CRC 冲突导致开机无限重启 (OnePlusOSS/android_kernel_common_oneplus_sm8650#42)
+          sed -i '/EXPORT_SYMBOL_GPL(test_task_ux);/d' block/blk-mq.c
+          if grep -q "EXPORT_SYMBOL_GPL(test_task_ux)" block/blk-mq.c; then
+            echo "错误：未能移除 block/blk-mq.c 中的 EXPORT_SYMBOL_GPL(test_task_ux)！"
+            exit 1
+          fi
+          # 2. 移除 6 个指向外部 vendor 目录的悬空软链接，并剔除 1c9edfd50d2a.patch 中的 deleted file mode 120000 块后完整打入补丁
+          rm -rf drivers/soc/oplus/oplus_resctrl drivers/soc/oplus/storage kernel/locking/locking_main.h kernel/locking/oplus_locking.c kernel/locking/sa_common_struct.h kernel/oplus_cpu
+          wget -q https://github.com/cctv18/android_kernel_common_oneplus_sm8650/commit/1c9edfd50d2a.patch
+          python3 -c 'import re; p=open("1c9edfd50d2a.patch",encoding="utf-8").read(); p=re.sub(r"diff --git a/[^\n]+\ndeleted file mode 120000\n.*?(?=\ndiff --git |\Z)","",p,flags=re.S); open("1c9edfd50d2a.patch","w",encoding="utf-8").write(p)'
+          git apply -p1 1c9edfd50d2a.patch
+          rm -f 1c9edfd50d2a.patch
+          wget -q https://github.com/cctv18/android_kernel_common_oneplus_sm8650/commit/8cd9786cbcc5.patch
+          patch -p1 -F 3 < 8cd9786cbcc5.patch
+          rm -f 8cd9786cbcc5.patch
+          wget -q https://github.com/cctv18/android_kernel_common_oneplus_sm8650/commit/a7a67b52a514.patch
+          patch -p1 -F 3 < a7a67b52a514.patch
+          rm -f a7a67b52a514.patch
+          wget -q https://github.com/cctv18/android_kernel_common_oneplus_sm8650/commit/81bd0078c430.patch
+          patch -p1 -F 3 < 81bd0078c430.patch
+          rm -f 81bd0078c430.patch
+          cd ..
           echo "所有源码及llvm-Clang20工具链初始化完成！"
           echo "正在去除 ABI 保护 & 去除 dirty 后缀..."
           rm common/android/abi_gki_protected_exports_* || true
@@ -184,6 +189,8 @@ jobs:
           echo "当前构建内核版本：${{ env.KERNEL_VERSION }}.${{ env.SUB_VERSION }}"
           if [[ "${{ github.event.inputs.droidspaces_enable }}" != "false" ]]; then
             CCACHE_REAL_KEY=${{ env.CCACHE_KEY }}-Droidspaces
+          elif [[ "${{ github.event.inputs.ksu_type }}" == "bakasu-sync-up" ]]; then
+            CCACHE_REAL_KEY=${{ env.CCACHE_KEY }}-syncup
           else
             CCACHE_REAL_KEY=${{ env.CCACHE_KEY }}-none
           fi
@@ -270,8 +277,8 @@ jobs:
         run: |
           # 进入内核工作目录
           cd kernel_workspace
-          if [[ ${{ github.event.inputs.ksu_type }} == "sukisu" || ${{ github.event.inputs.ksu_type }} == "bakasu" || ${{ github.event.inputs.ksu_type }} == "bakasu-dev" ]]; then
-            echo "正在配置BakaSU (main分支，由于SukiSU长期未维护无法正常编译，且BakaSU兼容sukisu管理器，故SukiSU源码仓库已重定向为bakasu)..."
+          if [[ "${{ github.event.inputs.ksu_type }}" == "sukisu" || "${{ github.event.inputs.ksu_type }}" == "bakasu" || "${{ github.event.inputs.ksu_type }}" == "bakasu-main-dev" ]]; then
+            echo "正在配置BakaSU (main/dev，由于SukiSU长期未维护无法正常编译，且BakaSU兼容sukisu管理器，故SukiSU源码仓库已重定向为bakasu)..."
             curl -LSs "https://raw.githubusercontent.com/Baka-SU/BakaSU/refs/heads/main/kernel/setup.sh" | bash -s main
             echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%@cctv18"' >> ./common/arch/arm64/configs/gki_defconfig
             cd ./KernelSU
@@ -285,7 +292,7 @@ jobs:
             # 存储版本号到 GitHub 环境变量
             echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
             echo "ksuver=$KSU_VERSION" >> $GITHUB_OUTPUT
-          elif [[ ${{ github.event.inputs.ksu_type }} == "bakasu-sync-up" ]]; then
+          elif [[ "${{ github.event.inputs.ksu_type }}" == "bakasu-sync-up" ]]; then
             echo "正在配置BakaSU (sync-up分支)..."
             curl -LSs "https://raw.githubusercontent.com/Baka-SU/BakaSU/refs/heads/sync-up/kernel/setup.sh" | bash -s sync-up
             echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%@cctv18"' >> ./common/arch/arm64/configs/gki_defconfig
@@ -293,6 +300,10 @@ jobs:
             # 补充 sync-up 分支 Kconfig 中缺失的 KSU_SUSFS_PRIORITY_UID_FILTER 配置项定义
             if ! grep -q "KSU_SUSFS_PRIORITY_UID_FILTER" kernel/Kconfig; then
               sed -i '/config KSU_SUSFS_SUS_MAP/i config KSU_SUSFS_PRIORITY_UID_FILTER\n    bool "Enable priority uid filter"\n    depends on KSU_SUSFS\n    default y\n' kernel/Kconfig
+            fi
+            # 确保 preinit_runner.mk 在解析编译器头文件目录时直接调用 clang，避免通过 cc-wrapper / ccache 包装器干扰
+            if [ -f kernel/tools/code_generation/preinit_runner/preinit_runner.mk ]; then
+              sed -i 's/\$(CC) -print-file-name=include/clang -print-file-name=include/g' kernel/tools/code_generation/preinit_runner/preinit_runner.mk
             fi
             sed -i 's/-dirty//g' kernel/Kbuild
             # 生成自定义版本号（基于提交计数）, 失败时使用 114514
@@ -435,8 +446,10 @@ jobs:
           echo "CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y" >> ./common/arch/arm64/configs/gki_defconfig
           #禁用 defconfig 检查
           sed -i 's/check_defconfig//' ./common/build.config.gki
-          #跳过将uapi标准头安装到 usr/include 目录的不必要操作，节省编译时间
-          echo "CONFIG_HEADERS_INSTALL=n" >> ./common/arch/arm64/configs/gki_defconfig
+          # sync-up 分支的 preinit_runner.mk 需要依赖 usr/include 下的 UAPI 头文件，仅非 sync-up 分支关闭 CONFIG_HEADERS_INSTALL
+          if [[ "${{ github.event.inputs.ksu_type }}" != "bakasu-sync-up" ]]; then
+            echo "CONFIG_HEADERS_INSTALL=n" >> ./common/arch/arm64/configs/gki_defconfig
+          fi
           # 应用 CVE_2026_43499 修复补丁 (6.1.157 上游已内置此修复，使用 -N || true 避免重复打补丁报错)
           cd common
           wget https://github.com/$GITHUB_REPOSITORY/raw/refs/heads/$GITHUB_REF_NAME/other_patch/cve-2026-43499-rtmutex-6.1.patch
@@ -651,8 +664,19 @@ jobs:
           sudo rm -rf /usr/local/lib/android &
           sudo rm -rf /opt/ghc &
           sudo rm -rf /opt/hostedtoolcache/CodeQL &
-          make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="ccache clang" LD="ld.lld" HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error gki_defconfig &&
+          make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="ccache clang" LD="ld.lld" HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error gki_defconfig
+          if [[ "${{ github.event.inputs.ksu_type }}" == "bakasu-sync-up" ]]; then
+            echo "正在为 BakaSU sync-up 分支预安装 UAPI 头文件 (供 preinit_runner.mk 编译 runner.elf)..."
+            make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="ccache clang" LD="ld.lld" HOSTLD=ld.lld O=out INSTALL_HDR_PATH="$(pwd)/out/usr" headers_install
+          fi
           make -j$(nproc --all) LLVM=1 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC="$(pwd)/cc-wrapper" LD="$(pwd)/ld-wrapper" HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error Image
+          
+          # 二进制硬校验：确认编译生成的 Image 的 __ksymtab_strings 中绝不包含冲突符号 test_task_ux
+          if python3 -c 'd=open("out/arch/arm64/boot/Image","rb").read(); exit(0 if b"blk_mq_alloc_request\x00test_task_ux\x00" in d else 1)'; then
+            echo "严重错误：Image 的 __ksymtab_strings 中仍然导出了 test_task_ux 符号！终止构建以防开机无限重启！"
+            exit 1
+          fi
+          echo "符号校验通过：Image 未导出冲突符号 test_task_ux！"
           
           # 编译后时间劫持二次校验
           echo "--- 编译后环境时间: $(LD_PRELOAD=$PRELOAD_LIBS date) ---"
@@ -695,9 +719,9 @@ jobs:
             echo "未找到内核镜像文件，构建可能出错"
             exit 1
           fi
-          if [[ ${{ github.event.inputs.ksu_type }} == "sukisu" ]]; then
+          if [[ "${{ github.event.inputs.ksu_type }}" == "sukisu" ]]; then
             KSU_TYPENAME="SukiSU"
-          elif [[ ${{ github.event.inputs.ksu_type }} == "bakasu" || ${{ github.event.inputs.ksu_type }} == "bakasu-dev" || ${{ github.event.inputs.ksu_type }} == "bakasu-sync-up" ]]; then
+          elif [[ "${{ github.event.inputs.ksu_type }}" == "bakasu" || "${{ github.event.inputs.ksu_type }}" == "bakasu-main-dev" || "${{ github.event.inputs.ksu_type }}" == "bakasu-sync-up" ]]; then
             KSU_TYPENAME="BakaSU"
           elif [[ ${{ github.event.inputs.ksu_type }} == "ksunext" ]]; then
             KSU_TYPENAME="KSUNext"
