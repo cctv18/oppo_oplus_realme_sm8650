@@ -95,17 +95,22 @@ mkdir kernel_workspace
 cd kernel_workspace
 git clone --depth=1 https://github.com/OnePlusOSS/android_kernel_common_oneplus_sm8635 -b oneplus/sm8635_b_16.0.0_nord_5 common
 cd common
-# 移除 block/blk-mq.c 中多余导出的 test_task_ux 符号，防止与 vendor_boot 首阶段模块 oplus_bsp_sched_assist.ko 产生重复符号/CRC 冲突导致开机无限重启 (OnePlusOSS/android_kernel_common_oneplus_sm8650#42)
+# 移除 block/blk-mq.c 中多余导出的 test_task_ux 符号，防止与 vendor_boot 首阶段模块 oplus_bsp_sched_assist.ko 产生重复符号/CRC 冲突导致开机无限重启 (OnePlusOSS/android_kernel_common_oneplus_sm8650#35)
 sed -i '/EXPORT_SYMBOL_GPL(test_task_ux);/d' block/blk-mq.c
 if grep -q "EXPORT_SYMBOL_GPL(test_task_ux)" block/blk-mq.c; then
   echo "错误：未能移除 block/blk-mq.c 中的 EXPORT_SYMBOL_GPL(test_task_ux)！"
   exit 1
 fi
+# 修复 6.1.157 Nord 5 源码中 task_struct 的 KABI 槽位偏移错位问题 (CONFIG_SLIM_SCHED 将 dmabuf_info 从 slot 2 挤到 slot 4 导致开机无限重启)
+python3 -c 'p="include/linux/sched.h"; s=open(p,encoding="utf-8").read(); old="\tANDROID_KABI_USE(1, unsigned int saved_state);\n#ifdef CONFIG_SLIM_SCHED\n\tANDROID_KABI_USE(2, unsigned long sched_prop);\n\tANDROID_KABI_USE(3, struct sched_ext_entity *scx);\n\tANDROID_KABI_USE(4, struct task_dma_buf_info *dmabuf_info);\n#else\n\tANDROID_KABI_USE(2, struct task_dma_buf_info *dmabuf_info);\n\tANDROID_KABI_RESERVE(3);\n\tANDROID_KABI_RESERVE(4);\n#endif"; new="\tANDROID_KABI_USE(1, unsigned int saved_state);\n\tANDROID_KABI_USE(2, struct task_dma_buf_info *dmabuf_info);\n#ifdef CONFIG_SLIM_SCHED\n\tANDROID_KABI_USE(3, unsigned long sched_prop);\n\tANDROID_KABI_USE(4, struct sched_ext_entity *scx);\n#else\n\tANDROID_KABI_RESERVE(3);\n\tANDROID_KABI_RESERVE(4);\n#endif"; assert old in s, "sched.h KABI pattern not found!"; open(p,"w",encoding="utf-8").write(s.replace(old,new,1))'
 rm -rf drivers/soc/oplus/oplus_resctrl drivers/soc/oplus/storage kernel/locking/locking_main.h kernel/locking/oplus_locking.c kernel/locking/sa_common_struct.h kernel/oplus_cpu
 wget -q https://github.com/cctv18/android_kernel_common_oneplus_sm8650/commit/1c9edfd50d2a.patch
 python3 -c 'import re; p=open("1c9edfd50d2a.patch",encoding="utf-8").read(); p=re.sub(r"diff --git a/[^\n]+\ndeleted file mode 120000\n.*?(?=\ndiff --git |\Z)","",p,flags=re.S); open("1c9edfd50d2a.patch","w",encoding="utf-8").write(p)'
 git apply -p1 1c9edfd50d2a.patch
 rm -f 1c9edfd50d2a.patch
+for rel in sched/sched_assist/sa_common.c sched/sched_assist/sa_common.h sched/sched_assist/sa_ddl.c sched/sched_assist/sa_fair.c sched/sched_assist/sa_oemdata.c sched/sched_assist/sched_assist.c waker_identify/waker_identify.c; do
+  wget -q "https://raw.githubusercontent.com/OnePlusOSS/android_kernel_modules_and_devicetree_oneplus_sm8635/oneplus/sm8635_b_16.0.0_nord_5/vendor/oplus/kernel/cpu/$rel" -O "kernel/oplus_cpu/$rel"
+done
 wget -q https://github.com/cctv18/android_kernel_common_oneplus_sm8650/commit/8cd9786cbcc5.patch && patch -p1 -F 3 < 8cd9786cbcc5.patch && rm -f 8cd9786cbcc5.patch
 wget -q https://github.com/cctv18/android_kernel_common_oneplus_sm8650/commit/a7a67b52a514.patch && patch -p1 -F 3 < a7a67b52a514.patch && rm -f a7a67b52a514.patch
 wget -q https://github.com/cctv18/android_kernel_common_oneplus_sm8650/commit/81bd0078c430.patch && patch -p1 -F 3 < 81bd0078c430.patch && rm -f 81bd0078c430.patch
