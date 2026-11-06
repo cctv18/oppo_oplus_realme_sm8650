@@ -255,6 +255,10 @@ jobs:
             curl -LSs "https://raw.githubusercontent.com/Baka-SU/BakaSU/refs/heads/main/kernel/setup.sh" | bash -s main
             echo 'CONFIG_KSU_FULL_NAME_FORMAT="%TAG_NAME%-%COMMIT_SHA%@cctv18"' >> ./common/arch/arm64/configs/gki_defconfig
             cd ./KernelSU
+            # 修复 BakaSU 上游 commit fa12ffde8244 误删 <6.6 SUSFS 所需的 fake_state 定义与初始化（解决链接时 undefined symbol: fake_state 报错）
+            sed -i '/__maybe_static struct page \*fake_status = NULL;/a #if defined(KSU_COMPAT_HAS_SUSFS_FEATURE_SELINUX_HIDE) \&\& LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)\nstruct selinux_state fake_state;\n#endif' kernel/feature/selinux_hide.c
+            sed -i '/no backup sepolicy available/{n;n;a #if defined(KSU_COMPAT_HAS_SUSFS_FEATURE_SELINUX_HIDE) \&\& LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)\n    fake_state.initialized = true;\n    fake_state.policy = backup_sepolicy;\n#endif
+            }' kernel/feature/selinux_hide.c
             # 生成自定义版本号（基于提交计数）, 失败时使用 114514
             KSU_VERSION=$(expr $(git rev-list --count main) + 30700 2>/dev/null || echo 114514)
             # 存储版本号到 GitHub 环境变量
