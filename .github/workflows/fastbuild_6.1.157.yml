@@ -6,7 +6,7 @@ env:
   KERNEL_VERSION: '6.1'
   SUB_VERSION: '157'
   KERNEL_NAME: 'android14-11-o-g00d81d97d759'
-  CCACHE_KEY: ccache-ecsv4-6.1.157-v3
+  CCACHE_KEY: ccache-ecsv4-6.1.157-v4
 
 on:
   workflow_dispatch:
@@ -291,6 +291,17 @@ jobs:
             sed -i '/__maybe_static struct page \*fake_status = NULL;/a #if defined(KSU_COMPAT_HAS_SUSFS_FEATURE_SELINUX_HIDE) \&\& LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)\nstruct selinux_state fake_state;\n#endif' kernel/feature/selinux_hide.c
             sed -i '/no backup sepolicy available/{n;n;a #if defined(KSU_COMPAT_HAS_SUSFS_FEATURE_SELINUX_HIDE) \&\& LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)\n    fake_state.initialized = true;\n    fake_state.policy = backup_sepolicy;\n#endif
             }' kernel/feature/selinux_hide.c
+            # 为 main 分支同步补充 KSU_SUSFS_PRIORITY_UID_FILTER 支持
+            if ! grep -q "KSU_SUSFS_PRIORITY_UID_FILTER" kernel/Kconfig; then
+              sed -i '/config KSU_SUSFS_SUS_MAP/i config KSU_SUSFS_PRIORITY_UID_FILTER\n    bool "Enable priority uid filter"\n    depends on KSU_SUSFS\n    default y\n' kernel/Kconfig
+            fi
+            if ! grep -q "CMD_SUSFS_SET_PRIORITY_UID_FILTER" kernel/supercall/dispatch.c; then
+              sed -i '/case CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING:/i #ifdef CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER\n    case CMD_SUSFS_SET_PRIORITY_UID_FILTER: {\n        susfs_set_priority_uid_filter(arg);\n        return 0;\n    }\n#endif' kernel/supercall/dispatch.c
+            fi
+            if ! grep -q "susfs_parse_priority_app_strings" kernel/manager/throne_tracker.c; then
+              sed -i '/#include <linux\/kernel.h>/a #ifdef CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER\n#include <linux/susfs.h>\n#endif' kernel/manager/throne_tracker.c
+              sed -i '/revert_creds(old_cred);/a #ifdef CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER\n    susfs_parse_priority_app_strings();\n#endif' kernel/manager/throne_tracker.c
+            fi
             sed -i 's/-dirty//g' kernel/Kbuild
             # 生成自定义版本号（基于提交计数）, 失败时使用 114514
             KSU_VERSION=$(expr $(git rev-list --count main) + 30700 2>/dev/null || echo 114514)
@@ -353,6 +364,9 @@ jobs:
               git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git susfs4ksu -b gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}
             else
               git clone --depth=1 https://github.com/cctv18/susfs4oki.git susfs4ksu -b oki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}
+              git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git susfs4ksu_upstream -b gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}
+              cp ./susfs4ksu_upstream/kernel_patches/fs/* ./susfs4ksu/kernel_patches/fs/
+              cp ./susfs4ksu_upstream/kernel_patches/include/linux/* ./susfs4ksu/kernel_patches/include/linux/
             fi
             wget https://github.com/$GITHUB_REPOSITORY/raw/refs/heads/$GITHUB_REF_NAME/other_patch/69_hide_stuff.patch -O ./common/69_hide_stuff.patch
             cp ./susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch ./common/
@@ -364,11 +378,47 @@ jobs:
               sed -i '/#include <trace\/hooks\/blk.h>/d' fs/namespace.c
               patch -p1 -F 3 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
               sed -i '/#include "internal.h"/a #include <trace/hooks/blk.h>' fs/namespace.c
+              # 为非 sync-up 分支同步打入 block/ioprio.c 与 kernel/sys.c 的 CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER 补丁块
+              python3 - << 'EOF_PRIO'
+              import pathlib
+              ioprio = pathlib.Path("block/ioprio.c")
+              s = ioprio.read_text()
+              if "CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER" not in s:
+                  s = s.replace(
+                      "int ioprio_check_cap(int ioprio)\n{\n\tswitch (IOPRIO_PRIO_CLASS(ioprio)) {\n",
+                      "#ifdef CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER\nextern bool susfs_is_priority_uid_filtered(uid_t uid);\n#endif\n\nint ioprio_check_cap(int ioprio)\n{\n\tswitch (IOPRIO_PRIO_CLASS(ioprio)) {\n",
+                      1
+                  )
+                  s = s.replace(
+                      "\t\t\tif (!who)\n\t\t\t\tuser = current_user();\n\t\t\telse\n\t\t\t\tuser = find_user(uid);",
+                      "\t\t\tif (!who)\n\t\t\t\tuser = current_user();\n\t\t\telse {\n#ifdef CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER\n\t\t\t\tif (current_uid().val >= 10000 && susfs_is_priority_uid_filtered(uid.val))\n\t\t\t\t\tbreak;\n#endif\n\t\t\t\tuser = find_user(uid);\n\t\t\t}",
+                      2
+                  )
+                  ioprio.write_text(s)
+              sysc = pathlib.Path("kernel/sys.c")
+              s2 = sysc.read_text()
+              if "CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER" not in s2:
+                  s2 = s2.replace(
+                      "SYSCALL_DEFINE3(setpriority,",
+                      "#ifdef CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER\nextern bool susfs_is_priority_uid_filtered(uid_t uid);\n#endif\n\nSYSCALL_DEFINE3(setpriority,",
+                      1
+                  )
+                  s2 = s2.replace(
+                      "\t\tif (!who)\n\t\t\tuid = cred->uid;\n\t\telse if (!uid_eq(uid, cred->uid)) {\n\t\t\tuser = find_user(uid);",
+                      "\t\tif (!who)\n\t\t\tuid = cred->uid;\n\t\telse if (!uid_eq(uid, cred->uid)) {\n#ifdef CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER\n\t\t\tif (cred->uid.val >= 10000 && susfs_is_priority_uid_filtered(uid.val))\n\t\t\t\tgoto out_unlock;\n#endif\n\t\t\tuser = find_user(uid);",
+                      2
+                  )
+                  sysc.write_text(s2)
+              EOF_PRIO
             else
               patch -p1 -F 3 < 50_add_susfs_in_gki-${{ env.ANDROID_VERSION }}-${{ env.KERNEL_VERSION }}.patch || true
             fi
-            patch -p1 -N -F 3 < 69_hide_stuff.patch || true
-            grep -q "jdwp-control" net/unix/af_unix.c || { echo "错误：af_unix.c 隐藏补丁未生效！"; exit 1; }
+            patch -p1 -N -F 3 < 69_hide_stuff.patch
+            for f in net/unix/af_unix.c fs/susfs.c fs/readdir.c fs/stat.c fs/open.c kernel/sys.c block/ioprio.c; do
+              sed -i '1i // CI_RUN_ID: ${{ github.run_id }}\n// ccache:disable' "$f"
+            done
+            grep -q "susfs_is_current_app_uid" net/unix/af_unix.c || { echo "错误：af_unix.c 隐藏补丁未生效！"; exit 1; }
+            grep -q "ksu_is_manager_uid" fs/susfs.c || { echo "错误：susfs.c 管理器UID自动隐藏补丁未生效！"; exit 1; }
             cd ..
           else
             echo "已选择无内置KernelSU模式，跳过susfs配置..."
@@ -427,9 +477,7 @@ jobs:
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
           echo "CONFIG_KSU_SUSFS_SUS_MAP=y" >> ./common/arch/arm64/configs/gki_defconfig
-          if [[ ${{ github.event.inputs.ksu_type }} == "bakasu-sync-up" ]]; then
-            echo "CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER=y" >> ./common/arch/arm64/configs/gki_defconfig
-          fi
+          echo "CONFIG_KSU_SUSFS_PRIORITY_UID_FILTER=y" >> ./common/arch/arm64/configs/gki_defconfig
           
       - name: 添加 KSU & 其他配置项
         run: |
@@ -683,6 +731,11 @@ jobs:
             exit 1
           fi
           echo "符号校验通过：Image 未导出冲突符号 test_task_ux！"
+          if ! python3 -c 'd=open("out/arch/arm64/boot/Image","rb").read(); exit(0 if (b"jdwp-control" in d and b"/dev/socket/adbd" in d and b"susfs_is_priority_uid_filtered" in d) else 1)'; then
+            echo "严重错误：Image 中未包含 69_hide_stuff.patch 的 ADB/JDWP 隐藏字符串或 priority_uid_filter 符号！"
+            exit 1
+          fi
+          echo "二进制隐蔽补丁校验通过：Image 包含 jdwp-control、/dev/socket/adbd 与 susfs_is_priority_uid_filtered！"
           
           # 编译后时间劫持二次校验
           echo "--- 编译后环境时间: $(LD_PRELOAD=$PRELOAD_LIBS date) ---"
@@ -727,7 +780,11 @@ jobs:
           fi
           if [[ "${{ github.event.inputs.ksu_type }}" == "sukisu" ]]; then
             KSU_TYPENAME="SukiSU"
-          elif [[ "${{ github.event.inputs.ksu_type }}" == "bakasu" || "${{ github.event.inputs.ksu_type }}" == "bakasu-main-dev" || "${{ github.event.inputs.ksu_type }}" == "bakasu-sync-up" ]]; then
+          elif [[ "${{ github.event.inputs.ksu_type }}" == "bakasu-sync-up" ]]; then
+            KSU_TYPENAME="BakaSU-syncup"
+          elif [[ "${{ github.event.inputs.ksu_type }}" == "bakasu-main-dev" ]]; then
+            KSU_TYPENAME="BakaSU-main"
+          elif [[ "${{ github.event.inputs.ksu_type }}" == "bakasu" ]]; then
             KSU_TYPENAME="BakaSU"
           elif [[ ${{ github.event.inputs.ksu_type }} == "ksunext" ]]; then
             KSU_TYPENAME="KSUNext"
