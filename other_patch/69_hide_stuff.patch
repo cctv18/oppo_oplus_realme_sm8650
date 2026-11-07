@@ -66,7 +66,7 @@
  	 * special [heap] marker for the heap:
 --- a/fs/proc/base.c	2024-12-15 11:30:00.213422100 -0500
 +++ b/fs/proc/base.c	2024-12-15 11:36:21.422813925 -0500
-@@ -2229,11 +2229,17 @@
+@@ -2229,12 +2229,18 @@
  
  	rc = -ENOENT;
  	vma = find_exact_vma(mm, vm_start, vm_end);
@@ -162,7 +162,7 @@
  			refcount_read(&s->sk_refcnt),
 --- a/fs/susfs.c
 +++ b/fs/susfs.c
-@@ -200,6 +200,14 @@
+@@ -200,6 +200,12 @@
  		return NULL;
  	}
  
@@ -175,7 +175,7 @@
  	setup_selinux("u:r:ksu:s0", cred);
  	commit_creds(cred);
  
-@@ -372,7 +380,8 @@
+@@ -372,7 +378,8 @@
  {
  	struct fuse_inode *fi = NULL;
  	if (!susfs_is_current_proc_umounted_app()) {
@@ -185,7 +185,7 @@
  	}
  	if (!inode->i_mapping) {
  		SUSFS_LOGE("inode->i_mapping is NULL\n");
-@@ -1784,12 +1793,20 @@
+@@ -1784,11 +1791,19 @@
   * Lockless lookup for the getpriority/setpriority syscall path.
   * Returns true if the uid is hidden by the priority uid filter.
   */
@@ -207,21 +207,21 @@
  		return false;
 --- a/fs/readdir.c
 +++ b/fs/readdir.c
-@@ -276,6 +276,8 @@
+@@ -276,7 +276,9 @@
  	if (prev_reclen && signal_pending(current))
  		return false;
  
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+ #ifdef CONFIG_KSU_SUSFS_SUS_PATH
 +	if (susfs_is_current_app_uid() && namlen == 4 && !memcmp(name, "adbd", 4))
 +		return true;
  	inode = ilookup(buf->sb, ino);
  	if (!inode) {
  		goto orig_flow;
-@@ -380,6 +382,8 @@
+@@ -380,7 +382,9 @@
  	if (prev_reclen && signal_pending(current))
  		return false;
  
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+ #ifdef CONFIG_KSU_SUSFS_SUS_PATH
 +	if (susfs_is_current_app_uid() && namlen == 4 && !memcmp(name, "adbd", 4))
 +		return true;
  	inode = ilookup(buf->sb, ino);
